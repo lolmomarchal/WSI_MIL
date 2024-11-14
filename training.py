@@ -49,16 +49,14 @@ class Trainer:
         self.best_weights_path = ""
 
     def _setup_directories(self):
-        # Create the necessary directories for saving outputs
+        # saving outputs
         for path in self.paths.values():
             os.makedirs(path, exist_ok=True)
-
-
-        # Overwrite the training log file if it exists or create a new one
         with open(self.training_log_path, 'w', newline='') as f:
             pass
 
     def _save_patient_data(self, loader, phase):
+        # initializing patient data dir
         phase_path = self.paths[phase]
         print(f"Initializing {phase} directories")
         for bags, positional, labels, x, y, tile_paths, scales, original_size, patient_id in loader:
@@ -91,6 +89,7 @@ class Trainer:
         return correct / len(labels)
 
     def train(self):
+        # train loop
         self._save_patient_data(self.train_loader, "train")
         self._save_patient_data(self.val_loader, "val")
         print("Training")
@@ -377,6 +376,8 @@ def main():
             test_loader = DataLoader(AttentionDataset(test.reset_index()), batch_size=1)
             results = evaluate(model, test_loader, device="cpu", instance_eval=False)
             fold_metrics_testing.append(results)
+            write_eval_crossval([fold_metrics_testing[i], fold_metrics_val[i]], os.path.join(save_path, "test-val_eval.csv"), ["Testing", "Validation", "Average"])
+
         print("Done with cross-val")
 
         index.append("Average")
@@ -384,7 +385,7 @@ def main():
         print("Testing:")
         write_eval_crossval(fold_metrics_testing, os.path.join(args.training_output, "testing_fold_evaluations.csv"), index)
         print("Validation:")
-        write_eval_crossval(fold_metrics_val, os.path.join(args.training_output, "validation_fold_evaluations.csv"), index)
+        write_eval_crossval(fold_metrics_val[i], os.path.join(args.training_output, "validation_fold_evaluations.csv"), index)
 
     # now do regular train-test-split
 
