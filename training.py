@@ -207,7 +207,6 @@ class Trainer:
         return instance_labels, instance_probs
 
     def _save_attention(self, epoch, A_raw, bags, positional, patient_id, h, phase="train"):
-        # Code for saving attention to CSVs, as per original script.
         if phase == "train":
             patient_path = os.path.join(self.paths["train"],patient_id[0],f"{patient_id[0]}.csv")
             cluster_path = os.path.join(self.paths["train"],patient_id[0],f"{patient_id[0]}_cluster.h5")
