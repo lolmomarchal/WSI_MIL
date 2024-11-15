@@ -131,7 +131,6 @@ class Trainer:
             self.optimizer.zero_grad()
             logits, Y_prob, _, A_raw, results_dict, h = self.model(values, label=labels, instance_eval=True)
             labels_one_hot = nn.functional.one_hot(labels, num_classes=self.model.n_classes).float()
-            logits = torch.sigmoid(logits)
             # now get the loss
             loss = self.criterion(logits, labels_one_hot)
             inst_count += 1
@@ -288,7 +287,7 @@ def get_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--positional_embed", action="store_true")
     parser.add_argument("--testing_csv", default=None)
-    parser.add_argument("--training_output", default = "/mnt/c/Users/loren/Masters/camelyon16_CLAM")
+    parser.add_argument("--training_output", default = "/mnt/c/Users/loren/Masters/test")
     parser.add_argument("--epochs", default=200,type=int)
     parser.add_argument("--k", default=20,type=int)
     parser.add_argument("--tile_selection", default="CLAM")
@@ -296,10 +295,10 @@ def get_args():
     parser.add_argument("--input_dim", default=2048,type=int)
     parser.add_argument("--hidden_dim1", default=512,type=int)
     parser.add_argument("--hidden_dim2", default=256,type=int)
-    parser.add_argument("--metadata_path", default ="/mnt/c/Users/loren/Downloads/Camelyon16/preprocessing_results/patient_files.csv") #
+    parser.add_argument("--metadata_path", default ="/mnt/c/Users/loren/Downloads/Camelyon16/preprocessing_results/patient_files.csv") #"/mnt/c/Users/loren/Downloads/Camelyon16/preprocessing_results/patient_files.csv"
     parser.add_argument("--cv", action="store_true")
     parser.add_argument("--fold_number", default=5,type=int)
-    parser.add_argument("--dropout", default=0.0,type=float)
+    parser.add_argument("--dropout", default=0.35,type=float)
     parser.add_argument("--batch_save", default=5,type=int)
     return parser.parse_args()
 
@@ -362,9 +361,10 @@ def main():
                            k=args.k, k_selection=args.tile_selection)
             # general criterion
             pos_num = len(train_data[train_data["target"] == 1]) / len(train_data)
-            pos_weight = torch.tensor([1 / (1 - pos_num)])
-            criterion = nn.BCELoss()
-            print(f"percentage of pos {pos_num} weight {pos_weight}")
+            # weights would be
+            weights = torch.tensor([pos_num, (1 - pos_num)])
+            criterion = nn.BCEWithLogitsLoss(weight = weights)
+            print(f"weights {weights}")
 
             save_path = os.path.join(args.training_output, f"fold_{i}")
             trainer = Trainer(criterion, args.batch_save, model, train_loader, val_loader, save_path, args.epochs,
@@ -411,9 +411,9 @@ def main():
     # general criterion
 
     pos_num = len(train[train["target"] == 1]) / len(train)
-    pos_weight = torch.tensor([1/(1 - pos_num)])
-    criterion = nn.BCELoss()
-    print(f"percentage of pos {pos_num} weight {pos_weight}")
+    weights = torch.tensor([pos_num, (1 - pos_num)])
+    criterion = nn.BCEWithLogitsLoss(weight = weights)
+    print(f"weight {weights}")
 
     save_path = os.path.join(args.training_output, f"train-test-split")
     trainer = Trainer(criterion, args.batch_save, model, train_loader, val_loader, save_path, args.epochs,
