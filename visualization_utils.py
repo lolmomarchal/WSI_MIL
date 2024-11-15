@@ -1,4 +1,8 @@
 # imports
+import PIL
+import cv2
+import matplotlib.pyplot as plt
+import matplotlib.animate
 
 
 # Need to do gif for training/val loss: updated every time
