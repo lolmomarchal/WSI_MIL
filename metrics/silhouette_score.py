@@ -13,7 +13,7 @@ plt.rcParams['lines.markersize'] = 2
 def cluster_silhouette_score(h5py_file, epoch, clusters =2, save_path = None):
   with h5py.File(h5py_file) as file:
     cluster = file[f"cluster_epoch_{epoch}"][:]
-  pca = PCA(n_components = clusters)
+  pca = PCA(n_components = 2)
   cluster_pca = pca.fit_transform(cluster)
   kmeans = KMeans(n_clusters = clusters, random_state =0, n_init = "auto")
   score = silhouette_score(cluster_pca, kmeans.fit_predict(cluster_pca))
