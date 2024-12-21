@@ -119,7 +119,7 @@ def dice_coefficient(y_pred, y_label):
     return (2*intersection)/(np.sum(y_label) + np.sum(y_pred))
 # ============================== MAIN ====================================
     
-def main(xml_file, slide_path, df, column, output_path = None):
+def get_dice_scores(xml_file, slide_path, df, column, output_path = None):
     # get written annotations
     annotations = read_xml_annotations(xml_file)
     exclusion, tumor = get_separate_regions(annotations)
