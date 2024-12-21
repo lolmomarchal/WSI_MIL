@@ -137,5 +137,5 @@ def main(xml_file, slide_path, df, column, output_path = None):
         cv2.imwrite(os.path.join(output_path, "ground_truth_annotations.png"), mask)
         cv2.imwrite(os.path.join(output_path, "predicted_annotations.png"), results_mask)
     
-    return dice_coeff, mask, results_mask
+    return dice_coeff,dice_coeff_borders, mask, results_mask
     
