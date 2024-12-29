@@ -54,6 +54,8 @@ def stratified_k_fold_split(data, label_column, patient_id_column, n_splits=5, r
         train_patients = pd.concat([label_0_patients, label_1_patients]).drop(index=val_patients.index)
         train_data = data[data[patient_id_column].isin(train_patients[patient_id_column])]
 
+        # for training data if there is an imbalance re sample
+
         folds.append((train_data, val_data))
 
     return folds

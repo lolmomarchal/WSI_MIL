@@ -1,7 +1,6 @@
 # python libraries
 import pandas as pd
 import numpy as np
-import torch
 import os
 import h5py
 import argparse
@@ -13,17 +12,26 @@ import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader
 from snorkel.classification import cross_entropy_with_probs
-import torch.nn.functional as F
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, confusion_matrix, roc_auc_score
 
 # custom
 
-from MIL_model import MIL_SB
+from models.MIL_model import MIL_SB
 from AttentionDataset import AttentionDataset, InstanceDataset, instance_dataloader
-from AttentionModel import GatedAttentionModel
+from models.AttentionModel import GatedAttentionModel
 from fold_split import stratified_k_fold_split, stratified_train_test_split
 
-
+class color:
+    PURPLE = '\033[95m'
+    CYAN = '\033[96m'
+    DARKCYAN = '\033[36m'
+    BLUE = '\033[94m'
+    GREEN = '\033[92m'
+    YELLOW = '\033[93m'
+    RED = '\033[91m'
+    BOLD = '\033[1m'
+    UNDERLINE = '\033[4m'
+    END = '\033[0m'
 class Trainer:
     def __init__(self, criterion, batch_save, model, train_loader, val_loader, save_path, num_epochs=200, patience=20,
                  positional_embed=False):
@@ -107,7 +115,8 @@ class Trainer:
 
                 saved = "YES" if self._save_best_model(val_loss, epoch) else None
                 if saved == "YES":
-                    self.best_weights_path = os.path.join(self.paths["weights"], f"weights_epoch_{epoch}.pth")
+                    self.best_weights_path = os.path.join(self.paths["weights"], f"weights_epoch_{epoch+1}.pth")
+                    print(f"{color.BOLD}Model saved with val_loss: {val_loss:.4f}{color.END}")
                 writer.writerow([epoch + 1, train_loss, train_accuracy, val_loss, val_accuracy, saved])
 
                 if self.patience_counter >= self.patience:
@@ -180,7 +189,7 @@ class Trainer:
         if val_loss < self.best_val_loss:
             self.best_val_loss = val_loss
             self.patience_counter = 0
-            torch.save(self.model.state_dict(), os.path.join(self.paths["weights"], f"weights_epoch_{epoch}.pth"))
+            torch.save(self.model.state_dict(), os.path.join(self.paths["weights"], f"weights_epoch_{epoch +1}.pth"))
             return True
         self.patience_counter += 1
         return False
@@ -234,12 +243,10 @@ def evaluate(model, dataloader, device="cpu", instance_eval=False):
     with torch.no_grad():
         for bags, positional, labels, x, y, tile_paths, scales, original_size, patient_id in dataloader:
             bags, labels = bags.to(device), labels.to(device)
-
             # get outputs
             outputs = model(bags)
             logits, Y_prob, Y_hat, A_raw, results_dict, h= outputs
-            logits_max, indices = torch.max(logits, 1)
-            all_probs.extend(Y_prob[:, 1].cpu().numpy())  # Probability of class 1
+            all_probs.extend(Y_prob[:, 1].cpu().numpy())
             all_preds.extend(Y_hat.cpu().numpy().flatten())
             all_labels.extend(labels.cpu().numpy().flatten())
     # get metrics
@@ -293,10 +300,11 @@ def get_args():
     parser.add_argument("--input_dim", default=2048,type=int)
     parser.add_argument("--hidden_dim1", default=512,type=int)
     parser.add_argument("--hidden_dim2", default=256,type=int)
-    parser.add_argument("--metadata_path", default ="/mnt/c/Users/loren/Downloads/Camelyon16/preprocessing_results/patient_files.csv") #"/mnt/c/Users/loren/Downloads/Camelyon16/preprocessing_results/patient_files.csv"
+    parser.add_argument("--metadata_path", default ="/mnt/c/Users/loren/Masters/colorectal2/patient_files.csv") #"/mnt/c/Users/loren/Downloads/Camelyon16/preprocessing_results/patient_files.csv"
     parser.add_argument("--cv", action="store_true")
     parser.add_argument("--fold_number", default=5,type=int)
     parser.add_argument("--dropout", default=0.35,type=float)
+    parser.add_argument("--k_causal", default=20,type=int)
     parser.add_argument("--batch_save", default=5,type=int)
     return parser.parse_args()
 
@@ -331,7 +339,7 @@ def main():
         train, test = stratified_train_test_split(data=label_data,
                                                   label_column='target',
                                                   patient_id_column='patient_id',
-                                                  test_size=0.2,
+                                                  test_size=0.15,
                                                   random_state=42
                                                   )
         # 2. get folds from train CV set
@@ -376,6 +384,8 @@ def main():
             test_loader = DataLoader(AttentionDataset(test.reset_index()), batch_size=1)
             results = evaluate(model, test_loader, device="cpu", instance_eval=False)
             fold_metrics_testing.append(results)
+            results = evaluate(model, val_loader, device="cpu", instance_eval=False)
+            fold_metrics_val.append(results)
             write_eval_crossval([fold_metrics_testing[i], fold_metrics_val[i]], os.path.join(save_path, "test-val_eval.csv"), ["Testing", "Validation", "Average"])
 
         print("Done with cross-val")
