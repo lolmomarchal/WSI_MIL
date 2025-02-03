@@ -21,6 +21,20 @@ from fold_split import stratified_k_fold_split, stratified_train_test_split
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
+def patient_id(row):
+    if "patient" in row:
+        return row.split("_node")[0]
+
+    elif "TCGA" in row:
+        ar = row.split("-")
+        id = ""
+        for i in range(4):
+            id += ar[i] + "_"
+        return id
+    else:
+        return row
+
+
 class Trainer:
     def __init__(self, criterion, batch_save, model, train_loader, val_loader, save_path, num_epochs=200, patience=20,
                  positional_embed=False):
