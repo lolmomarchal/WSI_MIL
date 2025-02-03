@@ -87,7 +87,7 @@ class AttentionDataset(data.Dataset):
 
         except Exception as e:
             print(f"Warning: Failed to load HDF5 file for index {index}: {e}")
-            return (torch.empty(0), torch.empty(0), label, [], [], [], 64, original_size, "")
+            return (torch.empty(0), torch.empty(0), label, [], [], [], 64, original_size, "error")
     def __len__(self):
         return (len(self.samples))
 class InstanceDataset:
