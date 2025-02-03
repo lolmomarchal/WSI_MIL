@@ -136,7 +136,7 @@ class Trainer:
 
         for bags, positional, labels, x, y, tile_paths, scales, original_size, patient_id in tqdm(self.train_loader,
                                                                                                   desc=f"Epoch {epoch + 1} [Train]"):
-            if patient_id[0] == "error":
+            if patient_id[0] == "error" or len(tile_paths) < 40:
                 continue 
             bags, positional, labels = bags.to(self.device), positional.to(self.device), labels.to(self.device)
             self.model.train()
