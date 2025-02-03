@@ -82,6 +82,8 @@ class AttentionDataset(data.Dataset):
             positional_embed = torch.from_numpy(np.array(positional_embed))
     
             return features,positional_embed, label, x, y, tile_paths, scales,original_size, patient_id
+        except:
+            return None,None, None, None, None, None, None,None, None
     def __len__(self):
         return (len(self.samples))
 class InstanceDataset:
