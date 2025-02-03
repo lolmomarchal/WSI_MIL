@@ -21,7 +21,7 @@ from fold_split import stratified_k_fold_split, stratified_train_test_split
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 def collate_fn(batch):
-    batch = [item for item in batch if item[0].numel() > 0]  # Remove empty tensors
+    batch = [item for item in batch if item is not None]  # Remove None entries
     return torch.utils.data.dataloader.default_collate(batch) if batch else None
     
 def patient_id(row):
