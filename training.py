@@ -20,7 +20,10 @@ from models.AttentionModel import GatedAttentionModel
 from fold_split import stratified_k_fold_split, stratified_train_test_split
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
+def collate_fn(batch):
+    batch = [item for item in batch if item[0].numel() > 0]  # Remove empty tensors
+    return torch.utils.data.dataloader.default_collate(batch) if batch else None
+    
 def patient_id(row):
     if "patient" in row:
         return row.split("_node")[0]
@@ -344,14 +347,16 @@ def main():
             print(f"\nFold {i + 1}")
             index.append(f"Folds {i}")
             # get the loaders
-            train_loader = DataLoader(AttentionDataset(train_data.reset_index()), batch_size=1, shuffle=True)
-            val_loader = DataLoader(AttentionDataset(val_data.reset_index()), batch_size=1)
+            train_loader = DataLoader(AttentionDataset(train_data.reset_index()), batch_size=1, shuffle=True, collate_fn=collate_fn)
+            val_loader = DataLoader(AttentionDataset(val_data.reset_index()), batch_size=1, collate_fn=collate_fn)
             # initiate model
             instance_loss = cross_entropy_with_probs
             model = MIL_SB(instance_loss, input_dim=args.input_dim, hidden_dim1=args.hidden_dim1,
                            hidden_dim2=args.hidden_dim2, dropout_rate=args.dropout,
                            k=args.k, k_selection=args.tile_selection)
             # general criterion
+
+            print(f" number of positive samples  {len(train_data[train_data['target'] == 1])} number of negative samples {len(train_data[train_data['target'] == 0])}")
             pos_num = len(train_data[train_data["target"] == 1]) / len(train_data)
             # weights would be
             weights = torch.tensor([pos_num, (1 - pos_num)])
@@ -367,7 +372,7 @@ def main():
             model.load_state_dict(torch.load(best_weights, weights_only=True))
 
             # now eval
-            test_loader = DataLoader(AttentionDataset(test.reset_index()), batch_size=1)
+            test_loader = DataLoader(AttentionDataset(test.reset_index()), batch_size=1, collate_fn=collate_fn)
             results = evaluate(model, test_loader, device="cpu", instance_eval=False)
             fold_metrics_testing.append(results)
             results = evaluate(model, val_loader, device="cpu", instance_eval=False)
@@ -397,8 +402,8 @@ def main():
                                               test_size=0.5,
                                               random_state=42
                                               )
-    train_loader = DataLoader(AttentionDataset(train.reset_index()), batch_size=1, shuffle=True)
-    val_loader = DataLoader(AttentionDataset(val.reset_index()), batch_size=1)
+    train_loader = DataLoader(AttentionDataset(train.reset_index()), batch_size=1, shuffle=True, collate_fn=collate_fn)
+    val_loader = DataLoader(AttentionDataset(val.reset_index()), batch_size=1, collate_fn=collate_fn)
     # initiate model
     instance_loss = cross_entropy_with_probs
     model = MIL_SB(instance_loss, input_dim=args.input_dim, hidden_dim1=args.hidden_dim1,
@@ -418,7 +423,7 @@ def main():
     best_weights = trainer.best_weights_path
     model.load_state_dict(torch.load(best_weights, weights_only=True))
     # now eval
-    test_loader = DataLoader(AttentionDataset(test.reset_index()), batch_size=1)
+    test_loader = DataLoader(AttentionDataset(test.reset_index()), batch_size=1, collate_fn=collate_fn)
     results_test= evaluate(model, test_loader, device="cpu", instance_eval=False)
     results_val = evaluate(model, val_loader, device="cpu", instance_eval=False)
 
