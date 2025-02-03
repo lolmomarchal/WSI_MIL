@@ -20,9 +20,7 @@ from models.AttentionModel import GatedAttentionModel
 from fold_split import stratified_k_fold_split, stratified_train_test_split
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-def collate_fn(batch):
-    batch = [item for item in batch if item is not None]  # Remove None entries
-    return torch.utils.data.dataloader.default_collate(batch) if batch else None
+
     
 def patient_id(row):
     if "patient" in row:
@@ -135,7 +133,7 @@ class Trainer:
 
         for bags, positional, labels, x, y, tile_paths, scales, original_size, patient_id in tqdm(self.train_loader,
                                                                                                   desc=f"Epoch {epoch + 1} [Train]"):
-            if bags is None:
+            if bags is torch.empty(0):
                 continue 
             bags, positional, labels = bags.to(self.device), positional.to(self.device), labels.to(self.device)
             self.model.train()
@@ -174,7 +172,7 @@ class Trainer:
     def _validate_epoch(self, epoch):
         running_loss, running_correct, total = 0.0, 0, 0
         for bags, positional, labels, x, y, tile_paths, scales, original_size, patient_id in tqdm(self.val_loader,desc=f"Epoch {epoch + 1} [Val]"):
-            if bags is None:
+            if bags is torch.empty(0):
                 continue 
             bags, positional, labels = bags.to(self.device), positional.to(self.device), labels.to(self.device)
             with torch.no_grad():
@@ -347,8 +345,8 @@ def main():
             print(f"\nFold {i + 1}")
             index.append(f"Folds {i}")
             # get the loaders
-            train_loader = DataLoader(AttentionDataset(train_data.reset_index()), batch_size=1, shuffle=True, collate_fn=collate_fn)
-            val_loader = DataLoader(AttentionDataset(val_data.reset_index()), batch_size=1, collate_fn=collate_fn)
+            train_loader = DataLoader(AttentionDataset(train_data.reset_index()), batch_size=1, shuffle=True)
+            val_loader = DataLoader(AttentionDataset(val_data.reset_index()), batch_size=1)
             # initiate model
             instance_loss = cross_entropy_with_probs
             model = MIL_SB(instance_loss, input_dim=args.input_dim, hidden_dim1=args.hidden_dim1,
@@ -372,7 +370,7 @@ def main():
             model.load_state_dict(torch.load(best_weights, weights_only=True))
 
             # now eval
-            test_loader = DataLoader(AttentionDataset(test.reset_index()), batch_size=1, collate_fn=collate_fn)
+            test_loader = DataLoader(AttentionDataset(test.reset_index()), batch_size=1)
             results = evaluate(model, test_loader, device="cpu", instance_eval=False)
             fold_metrics_testing.append(results)
             results = evaluate(model, val_loader, device="cpu", instance_eval=False)
@@ -402,8 +400,8 @@ def main():
                                               test_size=0.5,
                                               random_state=42
                                               )
-    train_loader = DataLoader(AttentionDataset(train.reset_index()), batch_size=1, shuffle=True, collate_fn=collate_fn)
-    val_loader = DataLoader(AttentionDataset(val.reset_index()), batch_size=1, collate_fn=collate_fn)
+    train_loader = DataLoader(AttentionDataset(train.reset_index()), batch_size=1, shuffle=True)
+    val_loader = DataLoader(AttentionDataset(val.reset_index()), batch_size=1)
     # initiate model
     instance_loss = cross_entropy_with_probs
     model = MIL_SB(instance_loss, input_dim=args.input_dim, hidden_dim1=args.hidden_dim1,
@@ -423,7 +421,7 @@ def main():
     best_weights = trainer.best_weights_path
     model.load_state_dict(torch.load(best_weights, weights_only=True))
     # now eval
-    test_loader = DataLoader(AttentionDataset(test.reset_index()), batch_size=1, collate_fn=collate_fn)
+    test_loader = DataLoader(AttentionDataset(test.reset_index()), batch_size=1)
     results_test= evaluate(model, test_loader, device="cpu", instance_eval=False)
     results_val = evaluate(model, val_loader, device="cpu", instance_eval=False)
 
