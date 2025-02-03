@@ -5,7 +5,6 @@ import os
 import h5py
 import argparse
 from tqdm import tqdm
-import os
 import csv
 import torch
 import torch.nn as nn
@@ -15,27 +14,17 @@ from snorkel.classification import cross_entropy_with_probs
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, confusion_matrix, roc_auc_score
 
 # custom
-
 from models.MIL_model import MIL_SB
 from AttentionDataset import AttentionDataset, InstanceDataset, instance_dataloader
 from models.AttentionModel import GatedAttentionModel
 from fold_split import stratified_k_fold_split, stratified_train_test_split
 
-class color:
-    PURPLE = '\033[95m'
-    CYAN = '\033[96m'
-    DARKCYAN = '\033[36m'
-    BLUE = '\033[94m'
-    GREEN = '\033[92m'
-    YELLOW = '\033[93m'
-    RED = '\033[91m'
-    BOLD = '\033[1m'
-    UNDERLINE = '\033[4m'
-    END = '\033[0m'
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
 class Trainer:
     def __init__(self, criterion, batch_save, model, train_loader, val_loader, save_path, num_epochs=200, patience=20,
                  positional_embed=False):
-        self.model = model
+        self.model = model.to(device)
         self.positional_embed = positional_embed
         self.train_loader = train_loader
         self.val_loader = val_loader
@@ -57,47 +46,12 @@ class Trainer:
         self.best_weights_path = ""
 
     def _setup_directories(self):
-        # saving outputs
         for path in self.paths.values():
             os.makedirs(path, exist_ok=True)
         with open(self.training_log_path, 'w', newline='') as f:
             pass
 
-    def _save_patient_data(self, loader, phase):
-        # initializing patient data dir
-        phase_path = self.paths[phase]
-        print(f"Initializing {phase} directories")
-        for bags, positional, labels, x, y, tile_paths, scales, original_size, patient_id in loader:
-            patient_dir = os.path.join(phase_path, patient_id[0])
-            os.makedirs(patient_dir, exist_ok=True)
-            patient_file = os.path.join(patient_dir, f"{patient_id[0]}.csv")
-            temp = pd.DataFrame()
-
-            x = np.array(x.squeeze(dim=0)).flatten()
-            y = np.array(y.squeeze(dim=0)).flatten()
-
-            # Check that tile_paths is a 1D array
-            tile_paths = np.array(tile_paths).flatten()
-            scales = np.repeat(scales, len(x))
-            original_size = np.repeat(int(original_size), len(x))
-
-            # Assign to the DataFrame
-            temp["x"] = x
-            temp["y"] = y
-            temp["tile_paths"] = tile_paths
-            temp["scale"] = scales
-            temp["size"] = original_size
-
-            # Save DataFrame to CSV
-            temp.to_csv(patient_file, index = False)
-
-    def _calculate_accuracy(self, outputs, labels):
-        preds = torch.argmax(outputs, dim=1)
-        correct = (preds == labels).sum().item()
-        return correct / len(labels)
-
     def train(self):
-        # train loop
         self._save_patient_data(self.train_loader, "train")
         self._save_patient_data(self.val_loader, "val")
         print("Training")
@@ -114,9 +68,6 @@ class Trainer:
                       f"Train Acc: {train_accuracy:.4f} | Val Loss: {val_loss:.4f} | Val Acc: {val_accuracy:.4f}")
 
                 saved = "YES" if self._save_best_model(val_loss, epoch) else None
-                if saved == "YES":
-                    self.best_weights_path = os.path.join(self.paths["weights"], f"weights_epoch_{epoch+1}.pth")
-                    print(f"{color.BOLD}Model saved with val_loss: {val_loss:.4f}{color.END}")
                 writer.writerow([epoch + 1, train_loss, train_accuracy, val_loss, val_accuracy, saved])
 
                 if self.patience_counter >= self.patience:
@@ -124,51 +75,48 @@ class Trainer:
                     break
 
     def _train_epoch(self, epoch):
-        running_loss, running_correct, total, inst_count, train_inst_loss = 0.0, 0, 0, 0, 0
+        running_loss, running_correct, total = 0.0, 0, 0
 
-        for bags, positional, labels, x, y, tile_paths, scales, original_size, patient_id in tqdm(self.train_loader,
-                                                                                                  desc=f"Epoch {epoch + 1} [Train]"):
+        for bags, positional, labels, _, _, _, _, _, _ in tqdm(self.train_loader, desc=f"Epoch {epoch + 1} [Train]"):
             self.model.train()
+            bags, labels = bags.to(device), labels.to(device)
+
             if self.positional_embed:
-                values = positional + bags
+                values = positional.to(device) + bags
             else:
                 values = bags
+
             if labels.dtype != torch.long:
                 labels = labels.long()
 
             self.optimizer.zero_grad()
             logits, Y_prob, _, A_raw, results_dict, h = self.model(values, label=labels, instance_eval=True)
             labels_one_hot = nn.functional.one_hot(labels, num_classes=self.model.n_classes).float()
-            # now get the loss
             loss = self.criterion(logits, labels_one_hot)
-            inst_count += 1
             instance_loss = results_dict["instance_loss"].item()
-            train_inst_loss += instance_loss
-            c1 = 0.7
-            total_loss = c1 * loss + (1 - c1) * instance_loss
+            total_loss = 0.7 * loss + 0.3 * instance_loss
             total_loss.backward()
             self.optimizer.step()
+
             running_loss += loss.item()
             running_correct += (logits.argmax(dim=1) == labels).sum().item()
             total += labels.size(0)
 
-            # if we want to save attention + get instance eval
-            if epoch % self.batch_save == 0:
-                self._save_attention(epoch, A_raw, bags, positional, patient_id, h)
-
-        train_loss = running_loss / len(self.train_loader)
-        train_accuracy = running_correct / total
-        return train_loss, train_accuracy
+        return running_loss / len(self.train_loader), running_correct / total
 
     def _validate_epoch(self, epoch):
         running_loss, running_correct, total = 0.0, 0, 0
-        for bags, positional, labels, x, y, tile_paths, scales, original_size, patient_id in tqdm(self.val_loader,desc=f"Epoch {epoch + 1} [Val]"):
+
+        for bags, positional, labels, _, _, _, _, _, _ in tqdm(self.val_loader, desc=f"Epoch {epoch + 1} [Val]"):
             with torch.no_grad():
                 self.model.eval()
+                bags, labels = bags.to(device), labels.to(device)
+
                 if self.positional_embed:
-                    values = positional + bags
+                    values = positional.to(device) + bags
                 else:
                     values = bags
+
                 logits, Y_prob, _, A_raw, results_dict, h = self.model(values, label=labels)
                 labels_one_hot = nn.functional.one_hot(labels, num_classes=self.model.n_classes).float()
                 logits = torch.sigmoid(logits)
@@ -178,12 +126,7 @@ class Trainer:
                 running_correct += (logits.argmax(dim=1) == labels).sum().item()
                 total += labels.size(0)
 
-                if epoch % self.batch_save == 0:
-                    self._save_attention(epoch, A_raw, bags, positional, patient_id, h, phase="val")
-
-        val_loss = running_loss / len(self.val_loader)
-        val_accuracy = running_correct / total
-        return val_loss, val_accuracy
+        return running_loss / len(self.val_loader), running_correct / total
 
     def _save_best_model(self, val_loss, epoch):
         if val_loss < self.best_val_loss:
@@ -194,119 +137,51 @@ class Trainer:
         self.patience_counter += 1
         return False
 
-    def _instance_eval(self, bags, positional):
 
-        instances = instance_dataloader(bags)
-        instance_pos = instance_dataloader(positional)
-        instance_labels = []
-        instance_probs = []
-        self.model.eval()
-        with torch.no_grad():
-            for instance, position in zip(instances, instance_pos):
-                if self.positional_embed:
-                    values = instance.unsqueeze(1) + position.unsqueeze(1)
-                else:
-                    values =  instance.unsqueeze(1)
-                logits_inst, Y_prob_inst, Y_hat_inst, A_raw_inst, dict, h = self.model(values,
-                                                                                  instance_eval=False)
-                instance_labels.append(Y_hat_inst.item())
-                instance_probs.append(Y_prob_inst[:, 1].item())
-        return instance_labels, instance_probs
-
-    def _save_attention(self, epoch, A_raw, bags, positional, patient_id, h, phase="train"):
-        if phase == "train":
-            patient_path = os.path.join(self.paths["train"],patient_id[0],f"{patient_id[0]}.csv")
-            cluster_path = os.path.join(self.paths["train"],patient_id[0],f"{patient_id[0]}_cluster.h5")
-        else:
-            patient_path = os.path.join(self.paths["val"],patient_id[0],f"{patient_id[0]}.csv")
-            cluster_path = os.path.join(self.paths["val"],patient_id[0],f"{patient_id[0]}_cluster.h5")
-        patient_csv = pd.read_csv(patient_path)
-        patient_csv[f"attention_{epoch + 1}"] = A_raw.squeeze(dim=1).squeeze().detach().numpy()
-        instance_labels, instance_probs = self._instance_eval(bags, positional)
-        patient_csv[f"instance_label_{epoch + 1}"] = np.array(instance_labels)
-        patient_csv[f"instance_prob_{epoch + 1}"] = np.array(instance_probs)
-        patient_csv.to_csv(patient_path, index = False)
-
-        #  save cluster info
-        with h5py.File(cluster_path, "a") as file:
-            if f'cluster_epoch_{epoch}' in file.keys():
-                del file[f'cluster_epoch_{epoch}']
-
-            file.create_dataset(f'cluster_epoch_{epoch}', data=h.detach().numpy() )
-# ----------------------------------------- EVALUATION ----------------------------------------------------------
-
-def evaluate(model, dataloader, device="cpu", instance_eval=False):
+def evaluate(model, dataloader, instance_eval=False):
+    model.to(device)
     model.eval()
-    all_preds = []
-    all_probs = []
-    all_labels = []
+    all_preds, all_probs, all_labels = [], [], []
+
     with torch.no_grad():
-        for bags, positional, labels, x, y, tile_paths, scales, original_size, patient_id in dataloader:
+        for bags, _, labels, _, _, _, _, _, _ in dataloader:
             bags, labels = bags.to(device), labels.to(device)
-            # get outputs
             outputs = model(bags)
-            logits, Y_prob, Y_hat, A_raw, results_dict, h= outputs
+            logits, Y_prob, Y_hat, _, _, _ = outputs
             all_probs.extend(Y_prob[:, 1].cpu().numpy())
             all_preds.extend(Y_hat.cpu().numpy().flatten())
             all_labels.extend(labels.cpu().numpy().flatten())
-    # get metrics
-    accuracy = accuracy_score(all_labels, all_preds)
-    # TP/(TP+FP)
-    precision = precision_score(all_labels, all_preds)
-    # TP/(TP+FN)
-    recall = recall_score(all_labels, all_preds)
-    # TP/(TP+0.5(FP+FN))
-    f1 = f1_score(all_labels, all_preds)
-    auc = roc_auc_score(all_labels, all_probs)
-    cm = confusion_matrix(all_labels, all_preds)
-    metrics = {
-        'accuracy': accuracy,
-        'precision': precision,
-        'recall': recall,
-        'f1_score': f1,
-        'roc_auc': auc,
-        'confusion_matrix': cm
+
+    return {
+        'accuracy': accuracy_score(all_labels, all_preds),
+        'precision': precision_score(all_labels, all_preds),
+        'recall': recall_score(all_labels, all_preds),
+        'f1_score': f1_score(all_labels, all_preds),
+        'roc_auc': roc_auc_score(all_labels, all_probs),
+        'confusion_matrix': confusion_matrix(all_labels, all_preds)
     }
-
-    return metrics
-
-
-# ------------------------------------------------------- MAIN -----------------------------------------------------------
-
-
-def patient_id(row):
-    if "patient" in row:
-        return row.split("_node")[0]
-
-    elif "TCGA" in row:
-        ar = row.split("-")
-        id = ""
-        for i in range(4):
-            id += ar[i] + "_"
-        return id
-    else:
-        return row
 
 
 def get_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--positional_embed", action="store_true")
     parser.add_argument("--testing_csv", default=None)
-    parser.add_argument("--training_output", default = "/mnt/c/Users/loren/Masters/test")
-    parser.add_argument("--epochs", default=200,type=int)
-    parser.add_argument("--k", default=20,type=int)
+    parser.add_argument("--training_output", default="/mnt/c/Users/loren/Masters/test")
+    parser.add_argument("--epochs", default=200, type=int)
+    parser.add_argument("--k", default=20, type=int)
     parser.add_argument("--tile_selection", default="CLAM")
-    parser.add_argument("--patience", default=20,type=int)
-    parser.add_argument("--input_dim", default=2048,type=int)
-    parser.add_argument("--hidden_dim1", default=512,type=int)
-    parser.add_argument("--hidden_dim2", default=256,type=int)
-    parser.add_argument("--metadata_path", default ="/mnt/c/Users/loren/Masters/colorectal2/patient_files.csv") #"/mnt/c/Users/loren/Downloads/Camelyon16/preprocessing_results/patient_files.csv"
+    parser.add_argument("--patience", default=20, type=int)
+    parser.add_argument("--input_dim", default=2048, type=int)
+    parser.add_argument("--hidden_dim1", default=512, type=int)
+    parser.add_argument("--hidden_dim2", default=256, type=int)
+    parser.add_argument("--metadata_path", default="/mnt/c/Users/loren/Masters/colorectal2/patient_files.csv")
     parser.add_argument("--cv", action="store_true")
-    parser.add_argument("--fold_number", default=5,type=int)
-    parser.add_argument("--dropout", default=0.35,type=float)
-    parser.add_argument("--k_causal", default=20,type=int)
-    parser.add_argument("--batch_save", default=5,type=int)
+    parser.add_argument("--fold_number", default=5, type=int)
+    parser.add_argument("--dropout", default=0.35, type=float)
+    parser.add_argument("--k_causal", default=20, type=int)
+    parser.add_argument("--batch_save", default=5, type=int)
     return parser.parse_args()
+
 
 
 
