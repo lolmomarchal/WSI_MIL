@@ -36,6 +36,7 @@ class AttentionDataset(data.Dataset):
     def __init__(self, dataFile='', transform=None, positional_embed = True):
         if isinstance(dataFile,str):
             self.slideData = pd.read_csv(dataFile, sep=",", header=0, index_col=0)
+            print(self.slideData.columns)
         else:
             self.slideData = dataFile
         if "Unnamed: 0" in self.slideData.columns:
