@@ -58,32 +58,36 @@ class AttentionDataset(data.Dataset):
 
     def __getitem__(self, index):
         label = self.labels[index]
+        patient_id = None  # Initialize to handle failures
         try:
             slide = openslide.OpenSlide(self.original_slide[index])
-            magnification = int(slide.properties.get("openslide.objective-power"))
-        except:
-            magnification = 40
+            magnification = int(slide.properties.get("openslide.objective-power", 40))  # Default to 40x if missing
+        except Exception as e:
+            print(f"Warning: Failed to load slide for index {index}: {e}")
+            magnification = 40  
+
         original_size = best_size(magnification, 256, 20)
+
         try:
             with h5py.File(self.files[index], 'r') as hdf5_file:
-                # print(hdf5_file.keys())
                 patient_id = os.path.basename(self.files[index]).replace(".h5", "")
-                features = hdf5_file['features'][:]
+                features = torch.from_numpy(hdf5_file['features'][:])
                 x = hdf5_file['x'][:]
                 y = hdf5_file['y'][:]
-                tile_paths = hdf5_file['tile_path'][:]
-                # scales = hdf5_file['scale'][:][0]
-                scales = 64
-                magnifications = hdf5_file['mag'][:][0]
-                tile_paths = [path.decode('utf-8') for path in tile_paths]
-    
-            features = torch.from_numpy(features)
-            positional_embed = [positional_embeddings_sin_cos(x_coord, y_coord) for x_coord, y_coord in zip(x, y)]
-            positional_embed = torch.from_numpy(np.array(positional_embed))
-    
-            return features,positional_embed, label, x, y, tile_paths, scales,original_size, patient_id
-       except (FileNotFoundError, OSError, KeyError, ValueError) as e:
+                tile_paths = [path.decode('utf-8') for path in hdf5_file['tile_path'][:]]
+
+                scales = 64  
+                magnifications = hdf5_file.get('mag', np.array([40]))[0]  
+
+                positional_embed = torch.from_numpy(np.array([
+                    positional_embeddings_sin_cos(x_coord, y_coord) for x_coord, y_coord in zip(x, y)
+                ]))
+
+            return features, positional_embed, label, x, y, tile_paths, scales, original_size, patient_id
+
+        except Exception as e:
             print(f"Warning: Failed to load HDF5 file for index {index}: {e}")
+            return (torch.empty(0), torch.empty(0), label, [], [], [], 64, original_size, "")
     def __len__(self):
         return (len(self.samples))
 class InstanceDataset:
