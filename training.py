@@ -74,8 +74,8 @@ class Trainer:
         phase_path = self.paths[phase]
         print(f"Initializing {phase} directories")
         for bags, positional, labels, x, y, tile_paths, scales, original_size, patient_id in loader:
-            print(patient_id)
-            if patient_id == "error":
+            print(patient_id[0])
+            if patient_id[0] == "error":
                 continue 
             patient_dir = os.path.join(phase_path, patient_id[0])
             os.makedirs(patient_dir, exist_ok=True)
@@ -137,7 +137,7 @@ class Trainer:
 
         for bags, positional, labels, x, y, tile_paths, scales, original_size, patient_id in tqdm(self.train_loader,
                                                                                                   desc=f"Epoch {epoch + 1} [Train]"):
-            if patient_id == "error":
+            if patient_id[0] == "error":
                 continue 
             bags, positional, labels = bags.to(self.device), positional.to(self.device), labels.to(self.device)
             self.model.train()
@@ -176,7 +176,7 @@ class Trainer:
     def _validate_epoch(self, epoch):
         running_loss, running_correct, total = 0.0, 0, 0
         for bags, positional, labels, x, y, tile_paths, scales, original_size, patient_id in tqdm(self.val_loader,desc=f"Epoch {epoch + 1} [Val]"):
-            if patient_id == "error":
+            if patient_id[0] == "error":
                 continue 
             bags, positional, labels = bags.to(self.device), positional.to(self.device), labels.to(self.device)
             with torch.no_grad():
