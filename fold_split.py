@@ -5,57 +5,83 @@ def stratified_train_test_split(data, label_column, patient_id_column, test_size
     if random_state is not None:
         np.random.seed(random_state)
 
-    # group data by patient ID and aggregate labels -> ensures no patient accross samples
-    grouped = data.groupby(patient_id_column)[label_column].agg(pd.Series.mode).reset_index()
-    label_0 = grouped[grouped[label_column] == 0]
-    label_1 = grouped[grouped[label_column] == 1]
+    # Get label distribution at sample level
+    total_label_0 = (data[label_column] == 0).sum()
+    total_label_1 = (data[label_column] == 1).sum()
+    total_samples = len(data)
 
-    # calculate the number of test samples needed for each label
-    num_test_label_0 = int(len(label_0) * test_size)
-    num_test_label_1 = int(len(label_1) * test_size)
+    target_test_size = int(total_samples * test_size)
+    target_test_label_0 = int(target_test_size * (total_label_0 / total_samples))
+    target_test_label_1 = int(target_test_size * (total_label_1 / total_samples))
 
-    # shuffle and select patients for the test set
-    test_patients_label_0 = label_0.sample(n=num_test_label_0, random_state=random_state)
-    test_patients_label_1 = label_1.sample(n=num_test_label_1, random_state=random_state)
+    # Group by patient and get patient-level label distributions
+    grouped = data.groupby(patient_id_column)[label_column].value_counts().unstack(fill_value=0).reset_index()
+    grouped.columns = [patient_id_column, 'label_0_count', 'label_1_count']
 
-    # combine test patients and determine the train patients
-    test_patients = pd.concat([test_patients_label_0, test_patients_label_1])
-    train_patients = grouped[~grouped[patient_id_column].isin(test_patients[patient_id_column])]
+    # Shuffle patients
+    grouped = grouped.sample(frac=1, random_state=random_state)
 
-    # filter the original data to create train and test sets
-    train_data = data[data[patient_id_column].isin(train_patients[patient_id_column])]
-    test_data = data[data[patient_id_column].isin(test_patients[patient_id_column])]
+    test_patients = []
+    test_label_0_count = 0
+    test_label_1_count = 0
+
+    for _, row in grouped.iterrows():
+        if (test_label_0_count < target_test_label_0) or (test_label_1_count < target_test_label_1):
+            test_patients.append(row[patient_id_column])
+            test_label_0_count += row['label_0_count']
+            test_label_1_count += row['label_1_count']
+        else:
+            break
+
+    # Split data
+    test_data = data[data[patient_id_column].isin(test_patients)]
+    train_data = data[~data[patient_id_column].isin(test_patients)]
 
     return train_data, test_data
 
 
-# for cross validation
 def stratified_k_fold_split(data, label_column, patient_id_column, n_splits=5, random_state=None):
     if random_state is not None:
         np.random.seed(random_state)
-    print (data[patient_id_column].value_counts())
 
-    # Group data by patient ID and aggregate labels
-    grouped = data.groupby(patient_id_column)[label_column].agg(pd.Series.mode).reset_index()
-    label_0_patients = grouped[grouped[label_column] == 0]
-    label_1_patients = grouped[grouped[label_column] == 1]
+    # Get label distribution
+    total_label_0 = (data[label_column] == 0).sum()
+    total_label_1 = (data[label_column] == 1).sum()
+    total_samples = len(data)
 
-    label_0_patients = label_0_patients.sample(frac=1, random_state=random_state).reset_index(drop=True)
-    label_1_patients = label_1_patients.sample(frac=1, random_state=random_state).reset_index(drop=True)
+    target_fold_size = int(total_samples / n_splits)
+    target_fold_label_0 = int(target_fold_size * (total_label_0 / total_samples))
+    target_fold_label_1 = int(target_fold_size * (total_label_1 / total_samples))
 
-    label_0_folds = np.array_split(label_0_patients, n_splits)
-    label_1_folds = np.array_split(label_1_patients, n_splits)
+    # Group by patient and count labels per patient
+    grouped = data.groupby(patient_id_column)[label_column].value_counts().unstack(fill_value=0).reset_index()
+    grouped.columns = [patient_id_column, 'label_0_count', 'label_1_count']
+
+    # Shuffle patients
+    grouped = grouped.sample(frac=1, random_state=random_state)
+
     folds = []
+    patient_ids = grouped[patient_id_column].tolist()
+    
     for i in range(n_splits):
-        # Create validation set for this fold
-        val_patients = pd.concat([label_0_folds[i], label_1_folds[i]])
-        val_data = data[data[patient_id_column].isin(val_patients[patient_id_column])]
+        fold_patients = []
+        fold_label_0_count = 0
+        fold_label_1_count = 0
 
-        # Create training set for this fold
-        train_patients = pd.concat([label_0_patients, label_1_patients]).drop(index=val_patients.index)
-        train_data = data[data[patient_id_column].isin(train_patients[patient_id_column])]
+        for pid in patient_ids:
+            patient_data = grouped[grouped[patient_id_column] == pid]
+            if (fold_label_0_count < target_fold_label_0) or (fold_label_1_count < target_fold_label_1):
+                fold_patients.append(pid)
+                fold_label_0_count += patient_data['label_0_count'].values[0]
+                fold_label_1_count += patient_data['label_1_count'].values[0]
+            else:
+                break
 
-        # for training data if there is an imbalance re sample
+        # Remove assigned patients
+        patient_ids = [pid for pid in patient_ids if pid not in fold_patients]
+
+        val_data = data[data[patient_id_column].isin(fold_patients)]
+        train_data = data[~data[patient_id_column].isin(fold_patients)]
 
         folds.append((train_data, val_data))
 
