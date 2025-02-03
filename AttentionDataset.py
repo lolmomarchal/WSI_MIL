@@ -65,7 +65,7 @@ class AttentionDataset(data.Dataset):
             magnification = 40
         original_size = best_size(magnification, 256, 20)
         with h5py.File(self.files[index], 'r') as hdf5_file:
-            print(hdf5_file.keys())
+            # print(hdf5_file.keys())
             patient_id = os.path.basename(self.files[index]).replace(".h5", "")
             features = hdf5_file['features'][:]
             x = hdf5_file['x'][:]
