@@ -69,7 +69,7 @@ class AttentionDataset(data.Dataset):
             features = hdf5_file['features'][:]
             x = hdf5_file['x'][:]
             y = hdf5_file['y'][:]
-            tile_paths = hdf5_file['tile_paths'][:]
+            tile_paths = hdf5_file['tile_path'][:]
             scales = hdf5_file['scale'][:][0]
             magnifications = hdf5_file['mag'][:][0]
             tile_paths = [path.decode('utf-8') for path in tile_paths]
