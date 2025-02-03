@@ -40,6 +40,7 @@ class Trainer:
                  positional_embed=False):
         self.model = model
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        print(f"device {self.device})
         self.model = model.to(self.device)
         self.positional_embed = positional_embed
         self.train_loader = train_loader
