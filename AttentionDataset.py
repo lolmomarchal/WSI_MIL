@@ -36,7 +36,6 @@ class AttentionDataset(data.Dataset):
     def __init__(self, dataFile='', transform=None, positional_embed = True):
         if isinstance(dataFile,str):
             self.slideData = pd.read_csv(dataFile, sep=",", header=0, index_col=0)
-            print(self.slideData.columns)
         else:
             self.slideData = dataFile
         if "Unnamed: 0" in self.slideData.columns:
@@ -66,6 +65,7 @@ class AttentionDataset(data.Dataset):
             magnification = 40
         original_size = best_size(magnification, 256, 20)
         with h5py.File(self.files[index], 'r') as hdf5_file:
+            print(hdf5_file.keys())
             patient_id = os.path.basename(self.files[index]).replace(".h5", "")
             features = hdf5_file['features'][:]
             x = hdf5_file['x'][:]
