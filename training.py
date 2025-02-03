@@ -69,13 +69,12 @@ class Trainer:
             pass
 
     def _save_patient_data(self, loader, phase):
-        
         # initializing patient data dir
         phase_path = self.paths[phase]
         print(f"Initializing {phase} directories")
         for bags, positional, labels, x, y, tile_paths, scales, original_size, patient_id in loader:
-            print(patient_id[0])
-            if patient_id[0] == "error":
+            patient_file = os.path.join(patient_dir, f"{patient_id[0]}.csv")
+            if patient_id[0] == "error" or os.path.isfile(patient_file):
                 continue 
             patient_dir = os.path.join(phase_path, patient_id[0])
             os.makedirs(patient_dir, exist_ok=True)
