@@ -34,11 +34,12 @@ def patient_id(row):
     else:
         return row
 
-
 class Trainer:
     def __init__(self, criterion, batch_save, model, train_loader, val_loader, save_path, num_epochs=200, patience=20,
                  positional_embed=False):
-        self.model = model.to(device)
+        self.model = model
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.model = model.to(self.device)
         self.positional_embed = positional_embed
         self.train_loader = train_loader
         self.val_loader = val_loader
@@ -46,7 +47,7 @@ class Trainer:
         self.num_epochs = num_epochs
         self.patience = patience
         self.batch_save = batch_save
-        self.criterion = criterion
+        self.criterion = criterion.to(self.device)
         self.optimizer = optim.Adam(model.parameters(), lr=1e-4)
         self.best_val_loss = float('inf')
         self.paths = {
@@ -60,12 +61,47 @@ class Trainer:
         self.best_weights_path = ""
 
     def _setup_directories(self):
+        # saving outputs
         for path in self.paths.values():
             os.makedirs(path, exist_ok=True)
         with open(self.training_log_path, 'w', newline='') as f:
             pass
 
+    def _save_patient_data(self, loader, phase):
+        # initializing patient data dir
+        phase_path = self.paths[phase]
+        print(f"Initializing {phase} directories")
+        for bags, positional, labels, x, y, tile_paths, scales, original_size, patient_id in loader:
+            patient_dir = os.path.join(phase_path, patient_id[0])
+            os.makedirs(patient_dir, exist_ok=True)
+            patient_file = os.path.join(patient_dir, f"{patient_id[0]}.csv")
+            temp = pd.DataFrame()
+
+            x = np.array(x.squeeze(dim=0)).flatten()
+            y = np.array(y.squeeze(dim=0)).flatten()
+
+            # Check that tile_paths is a 1D array
+            tile_paths = np.array(tile_paths).flatten()
+            scales = np.repeat(scales, len(x))
+            original_size = np.repeat(int(original_size), len(x))
+
+            # Assign to the DataFrame
+            temp["x"] = x
+            temp["y"] = y
+            temp["tile_paths"] = tile_paths
+            temp["scale"] = scales
+            temp["size"] = original_size
+
+            # Save DataFrame to CSV
+            temp.to_csv(patient_file, index = False)
+
+    def _calculate_accuracy(self, outputs, labels):
+        preds = torch.argmax(outputs, dim=1)
+        correct = (preds == labels).sum().item()
+        return correct / len(labels)
+
     def train(self):
+        # train loop
         self._save_patient_data(self.train_loader, "train")
         self._save_patient_data(self.val_loader, "val")
         print("Training")
@@ -82,6 +118,9 @@ class Trainer:
                       f"Train Acc: {train_accuracy:.4f} | Val Loss: {val_loss:.4f} | Val Acc: {val_accuracy:.4f}")
 
                 saved = "YES" if self._save_best_model(val_loss, epoch) else None
+                if saved == "YES":
+                    self.best_weights_path = os.path.join(self.paths["weights"], f"weights_epoch_{epoch+1}.pth")
+                    print(f"{color.BOLD}Model saved with val_loss: {val_loss:.4f}{color.END}")
                 writer.writerow([epoch + 1, train_loss, train_accuracy, val_loss, val_accuracy, saved])
 
                 if self.patience_counter >= self.patience:
@@ -89,48 +128,55 @@ class Trainer:
                     break
 
     def _train_epoch(self, epoch):
-        running_loss, running_correct, total = 0.0, 0, 0
+        running_loss, running_correct, total, inst_count, train_inst_loss = 0.0, 0, 0, 0, 0
 
-        for bags, positional, labels, _, _, _, _, _, _ in tqdm(self.train_loader, desc=f"Epoch {epoch + 1} [Train]"):
+        for bags, positional, labels, x, y, tile_paths, scales, original_size, patient_id in tqdm(self.train_loader,
+                                                                                                  desc=f"Epoch {epoch + 1} [Train]"):
+            
+            bags, positional, labels = bags.to(self.device), positional.to(self.device), labels.to(self.device)
             self.model.train()
-            bags, labels = bags.to(device), labels.to(device)
-
             if self.positional_embed:
-                values = positional.to(device) + bags
+                values = positional + bags
             else:
                 values = bags
-
             if labels.dtype != torch.long:
                 labels = labels.long()
+            
 
             self.optimizer.zero_grad()
             logits, Y_prob, _, A_raw, results_dict, h = self.model(values, label=labels, instance_eval=True)
             labels_one_hot = nn.functional.one_hot(labels, num_classes=self.model.n_classes).float()
+            # now get the loss
             loss = self.criterion(logits, labels_one_hot)
+            inst_count += 1
             instance_loss = results_dict["instance_loss"].item()
-            total_loss = 0.7 * loss + 0.3 * instance_loss
+            train_inst_loss += instance_loss
+            c1 = 0.7
+            total_loss = c1 * loss + (1 - c1) * instance_loss
             total_loss.backward()
             self.optimizer.step()
-
             running_loss += loss.item()
             running_correct += (logits.argmax(dim=1) == labels).sum().item()
             total += labels.size(0)
 
-        return running_loss / len(self.train_loader), running_correct / total
+            # if we want to save attention + get instance eval
+            if epoch % self.batch_save == 0:
+                self._save_attention(epoch, A_raw, bags, positional, patient_id, h)
+
+        train_loss = running_loss / len(self.train_loader)
+        train_accuracy = running_correct / total
+        return train_loss, train_accuracy
 
     def _validate_epoch(self, epoch):
         running_loss, running_correct, total = 0.0, 0, 0
-
-        for bags, positional, labels, _, _, _, _, _, _ in tqdm(self.val_loader, desc=f"Epoch {epoch + 1} [Val]"):
+        for bags, positional, labels, x, y, tile_paths, scales, original_size, patient_id in tqdm(self.val_loader,desc=f"Epoch {epoch + 1} [Val]"):
+            bags, positional, labels = bags.to(self.device), positional.to(self.device), labels.to(self.device)
             with torch.no_grad():
                 self.model.eval()
-                bags, labels = bags.to(device), labels.to(device)
-
                 if self.positional_embed:
-                    values = positional.to(device) + bags
+                    values = positional + bags
                 else:
                     values = bags
-
                 logits, Y_prob, _, A_raw, results_dict, h = self.model(values, label=labels)
                 labels_one_hot = nn.functional.one_hot(labels, num_classes=self.model.n_classes).float()
                 logits = torch.sigmoid(logits)
@@ -140,7 +186,12 @@ class Trainer:
                 running_correct += (logits.argmax(dim=1) == labels).sum().item()
                 total += labels.size(0)
 
-        return running_loss / len(self.val_loader), running_correct / total
+                if epoch % self.batch_save == 0:
+                    self._save_attention(epoch, A_raw, bags, positional, patient_id, h, phase="val")
+
+        val_loss = running_loss / len(self.val_loader)
+        val_accuracy = running_correct / total
+        return val_loss, val_accuracy
 
     def _save_best_model(self, val_loss, epoch):
         if val_loss < self.best_val_loss:
@@ -151,6 +202,49 @@ class Trainer:
         self.patience_counter += 1
         return False
 
+    def _instance_eval(self, bags, positional):
+
+        instances = instance_dataloader(bags)
+        instance_pos = instance_dataloader(positional)
+        instance_labels = []
+        instance_probs = []
+        self.model.eval()
+        with torch.no_grad():
+            for instance, position in zip(instances, instance_pos):
+                if self.positional_embed:
+                    values = instance.unsqueeze(1) + position.unsqueeze(1)
+                else:
+                    values =  instance.unsqueeze(1)
+                logits_inst, Y_prob_inst, Y_hat_inst, A_raw_inst, dict, h = self.model(values,
+                                                                                  instance_eval=False)
+                instance_labels.append(Y_hat_inst.item())
+                instance_probs.append(Y_prob_inst[:, 1].item())
+        return instance_labels, instance_probs
+
+    def _save_attention(self, epoch, A_raw, bags, positional, patient_id, h, phase="train"):
+        if phase == "train":
+            patient_path = os.path.join(self.paths["train"],patient_id[0],f"{patient_id[0]}.csv")
+            cluster_path = os.path.join(self.paths["train"],patient_id[0],f"{patient_id[0]}_cluster.h5")
+        else:
+            patient_path = os.path.join(self.paths["val"],patient_id[0],f"{patient_id[0]}.csv")
+            cluster_path = os.path.join(self.paths["val"],patient_id[0],f"{patient_id[0]}_cluster.h5")
+        patient_csv = pd.read_csv(patient_path)
+        patient_csv[f"attention_{epoch + 1}"] = A_raw.squeeze(dim=1).squeeze().detach().cpu().numpy()
+        instance_labels, instance_probs = self._instance_eval(bags, positional)
+        
+        instance_labels = [label.cpu().item() if isinstance(label, torch.Tensor) else label for label in instance_labels]
+        instance_probs = [prob.cpu().item() if isinstance(prob, torch.Tensor) else prob for prob in instance_probs]
+        
+        patient_csv[f"instance_label_{epoch + 1}"] = np.array(instance_labels)
+        patient_csv[f"instance_prob_{epoch + 1}"] = np.array(instance_probs)
+        patient_csv.to_csv(patient_path, index = False)
+
+        #  save cluster info
+        with h5py.File(cluster_path, "a") as file:
+            if f'cluster_epoch_{epoch}' in file.keys():
+                del file[f'cluster_epoch_{epoch}']
+
+            file.create_dataset(f'cluster_epoch_{epoch}', data=h.detach().cpu().numpy() )
 
 def evaluate(model, dataloader, instance_eval=False):
     model.to(device)
