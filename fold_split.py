@@ -33,7 +33,7 @@ def stratified_train_test_split(data, label_column, patient_id_column, test_size
 def stratified_k_fold_split(data, label_column, patient_id_column, n_splits=5, random_state=None):
     if random_state is not None:
         np.random.seed(random_state)
-    print (data["patient_id_column"].unique()]
+    print (data["patient_id_column"].unique())
 
     # Group data by patient ID and aggregate labels
     grouped = data.groupby(patient_id_column)[label_column].agg(pd.Series.mode).reset_index()
