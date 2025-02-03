@@ -64,23 +64,24 @@ class AttentionDataset(data.Dataset):
         except:
             magnification = 40
         original_size = best_size(magnification, 256, 20)
-        with h5py.File(self.files[index], 'r') as hdf5_file:
-            # print(hdf5_file.keys())
-            patient_id = os.path.basename(self.files[index]).replace(".h5", "")
-            features = hdf5_file['features'][:]
-            x = hdf5_file['x'][:]
-            y = hdf5_file['y'][:]
-            tile_paths = hdf5_file['tile_path'][:]
-            # scales = hdf5_file['scale'][:][0]
-            scales = 64
-            magnifications = hdf5_file['mag'][:][0]
-            tile_paths = [path.decode('utf-8') for path in tile_paths]
-
-        features = torch.from_numpy(features)
-        positional_embed = [positional_embeddings_sin_cos(x_coord, y_coord) for x_coord, y_coord in zip(x, y)]
-        positional_embed = torch.from_numpy(np.array(positional_embed))
-
-        return features,positional_embed, label, x, y, tile_paths, scales,original_size, patient_id
+        try:
+            with h5py.File(self.files[index], 'r') as hdf5_file:
+                # print(hdf5_file.keys())
+                patient_id = os.path.basename(self.files[index]).replace(".h5", "")
+                features = hdf5_file['features'][:]
+                x = hdf5_file['x'][:]
+                y = hdf5_file['y'][:]
+                tile_paths = hdf5_file['tile_path'][:]
+                # scales = hdf5_file['scale'][:][0]
+                scales = 64
+                magnifications = hdf5_file['mag'][:][0]
+                tile_paths = [path.decode('utf-8') for path in tile_paths]
+    
+            features = torch.from_numpy(features)
+            positional_embed = [positional_embeddings_sin_cos(x_coord, y_coord) for x_coord, y_coord in zip(x, y)]
+            positional_embed = torch.from_numpy(np.array(positional_embed))
+    
+            return features,positional_embed, label, x, y, tile_paths, scales,original_size, patient_id
     def __len__(self):
         return (len(self.samples))
 class InstanceDataset:
