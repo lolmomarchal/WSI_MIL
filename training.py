@@ -132,7 +132,8 @@ class Trainer:
 
         for bags, positional, labels, x, y, tile_paths, scales, original_size, patient_id in tqdm(self.train_loader,
                                                                                                   desc=f"Epoch {epoch + 1} [Train]"):
-            
+            if bags is None:
+                continue 
             bags, positional, labels = bags.to(self.device), positional.to(self.device), labels.to(self.device)
             self.model.train()
             if self.positional_embed:
@@ -170,6 +171,8 @@ class Trainer:
     def _validate_epoch(self, epoch):
         running_loss, running_correct, total = 0.0, 0, 0
         for bags, positional, labels, x, y, tile_paths, scales, original_size, patient_id in tqdm(self.val_loader,desc=f"Epoch {epoch + 1} [Val]"):
+            if bags is None:
+                continue 
             bags, positional, labels = bags.to(self.device), positional.to(self.device), labels.to(self.device)
             with torch.no_grad():
                 self.model.eval()
