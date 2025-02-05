@@ -19,9 +19,16 @@ from models.MIL_model import MIL_SB
 from AttentionDataset import AttentionDataset, InstanceDataset, instance_dataloader
 from models.AttentionModel import GatedAttentionModel
 from fold_split import stratified_k_fold_split, stratified_train_test_split
-
+torch.backends.cuda.matmul.allow_tf32 = True
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
+class color:
+    reset = '\033[0m'
+    BOLD = '\033[01m'
+    red = '\033[31m'
+    green = '\033[32m'
+    yellow = '\033[33m'
+    blue = '\033[34m'
     
 def patient_id(row):
     if "patient" in row:
@@ -130,7 +137,7 @@ class Trainer:
                 saved = "YES" if self._save_best_model(val_loss, epoch) else None
                 if saved == "YES":
                     self.best_weights_path = os.path.join(self.paths["weights"], f"weights_epoch_{epoch+1}.pth")
-                    print(f"{color.BOLD}Model saved with val_loss: {val_loss:.4f}{color.END}")
+                    print(f"Model saved with val_loss: {val_loss:.4f}")
                 writer.writerow([epoch + 1, train_loss, train_accuracy, val_loss, val_accuracy, saved])
 
                 if self.patience_counter >= self.patience:
