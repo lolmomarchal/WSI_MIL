@@ -109,7 +109,7 @@ class Trainer:
         phase_path = self.paths[phase]
         print(f"Initializing {phase} directories")
     
-        with ThreadPoolExecutor() as executor:
+        with ThreadPoolExecutor(max_workers = os.cpu_count()) as executor:
             executor.map(self._save_single_patient, [(data, phase_path) for data in loader])
 
     def _calculate_accuracy(self, outputs, labels):
