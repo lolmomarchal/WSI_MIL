@@ -77,7 +77,7 @@ class Trainer:
         with open(self.training_log_path, 'w', newline='') as f:
             pass
 
-     def _save_patient_data(self, loader, phase):
+    def _save_patient_data(self, loader, phase):
         # initializing patient data dir
         phase_path = self.paths[phase]
         print(f"Initializing {phase} directories")
