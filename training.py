@@ -99,12 +99,11 @@ class Trainer:
         temp.to_csv(patient_file, index=False)
 
     def _save_patient_data(self, loader, phase):
-        """Multithreading-enabled function to save patient data."""
         phase_path = self.paths[phase]
         print(f"Initializing {phase} directories")
     
         with ThreadPoolExecutor() as executor:
-            executor.map(_save_single_patient, [(data, phase_path) for data in loader])
+            executor.map(self._save_single_patient, [(data, phase_path) for data in loader])
 
     def _calculate_accuracy(self, outputs, labels):
         preds = torch.argmax(outputs, dim=1)
