@@ -85,8 +85,8 @@ class Trainer:
         
         os.makedirs(patient_dir, exist_ok=True)
         
-        if patient_id[0] == "error" or os.path.isfile(patient_file):
-            return  # Skip if already processed or invalid
+        # if patient_id[0] == "error" or os.path.isfile(patient_file):
+        #     return  # Skip if already processed or invalid
     
         temp = pd.DataFrame()
     
