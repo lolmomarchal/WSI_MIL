@@ -77,40 +77,37 @@ class Trainer:
         with open(self.training_log_path, 'w', newline='') as f:
             pass
 
-    def _save_single_patient(patient_data, phase_path):
-        """Helper function to process and save a single patient's data."""
-        bags, positional, labels, x, y, tile_paths, scales, original_size, patient_id = patient_data
-        patient_dir = os.path.join(phase_path, patient_id[0])
-        patient_file = os.path.join(patient_dir, f"{patient_id[0]}.csv")
-        
-        os.makedirs(patient_dir, exist_ok=True)
-        
-        # if patient_id[0] == "error" or os.path.isfile(patient_file):
-        #     return  # Skip if already processed or invalid
-    
-        temp = pd.DataFrame()
-    
-        x = np.array(x.squeeze(dim=0)).flatten()
-        y = np.array(y.squeeze(dim=0)).flatten()
-    
-        tile_paths = np.array(tile_paths).flatten()
-        scales = np.repeat(scales, len(x))
-        original_size = np.repeat(int(original_size), len(x))
-    
-        temp["x"] = x
-        temp["y"] = y
-        temp["tile_paths"] = tile_paths
-        temp["scale"] = scales
-        temp["size"] = original_size
-    
-        temp.to_csv(patient_file, index=False)
-
-    def _save_patient_data(self, loader, phase):
+     def _save_patient_data(self, loader, phase):
+        # initializing patient data dir
         phase_path = self.paths[phase]
         print(f"Initializing {phase} directories")
-    
-        with ThreadPoolExecutor(max_workers = os.cpu_count()) as executor:
-            executor.map(self._save_single_patient, [(data, phase_path) for data in loader])
+        for bags, positional, labels, x, y, tile_paths, scales, original_size, patient_id in loader:
+            patient_dir = os.path.join(phase_path, patient_id[0])
+            patient_file = os.path.join(patient_dir, f"{patient_id[0]}.csv")
+            print(patient_file)
+            os.makedirs(patient_dir, exist_ok=True)
+            if patient_id[0] == "error" or os.path.isfile(patient_file):
+                continue 
+     
+            temp = pd.DataFrame()
+
+            x = np.array(x.squeeze(dim=0)).flatten()
+            y = np.array(y.squeeze(dim=0)).flatten()
+
+            # Check that tile_paths is a 1D array
+            tile_paths = np.array(tile_paths).flatten()
+            scales = np.repeat(scales, len(x))
+            original_size = np.repeat(int(original_size), len(x))
+
+            # Assign to the DataFrame
+            temp["x"] = x
+            temp["y"] = y
+            temp["tile_paths"] = tile_paths
+            temp["scale"] = scales
+            temp["size"] = original_size
+
+            # Save DataFrame to CSV
+            temp.to_csv(patient_file, index = False)
 
     def _calculate_accuracy(self, outputs, labels):
         preds = torch.argmax(outputs, dim=1)
