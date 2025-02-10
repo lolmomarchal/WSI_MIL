@@ -115,13 +115,36 @@ class Trainer:
     def _save_patient_data(self, dataset, phase):
         phase_path = self.paths[phase]
         print(f"Initializing {phase} directories")
-        with ThreadPoolExecutor(max_workers=os.cpu_count()) as executor:
-            futures = {
-                executor.submit(self.save_patient, phase_path, i, dataset): i
-                for i in range(len(dataset))
-            }
-            for future in tqdm(as_completed(futures), total=len(dataset)):
-                future.result()
+        for batch in tqdm(dataset, total = len(dataset)):
+            bags, positional, labels, x, y, tile_paths, scales, original_size, patient_id = batch
+            patient_dir = os.path.join(phase_path, patient_id)
+            patient_file = os.path.join(patient_dir, f"{patient_id}.csv")
+            os.makedirs(patient_dir, exist_ok=True)
+    
+            if patient_id[0] == "error" or os.path.isfile(patient_file):
+                return
+            temp = pd.DataFrame()
+            x = np.array(x.squeeze()).flatten()
+            y = np.array(y.squeeze()).flatten()
+            tile_paths = np.array(tile_paths).flatten()
+            scales = np.repeat(scales, len(x))
+            original_size = np.repeat(int(original_size), len(x))
+    
+            temp["x"] = x
+            temp["y"] = y
+            temp["tile_paths"] = tile_paths
+            temp["scale"] = scales
+            temp["size"] = original_size
+    
+            temp.to_csv(patient_file, index=False)
+            
+        # with ThreadPoolExecutor(max_workers=os.cpu_count()) as executor:
+        #     futures = {
+        #         executor.submit(self.save_patient, phase_path, i, dataset): i
+        #         for i in range(len(dataset))
+        #     }
+        #     for future in tqdm(as_completed(futures), total=len(dataset)):
+        #         future.result()
 
     def _calculate_accuracy(self, outputs, labels):
         preds = torch.argmax(outputs, dim=1)
@@ -130,8 +153,8 @@ class Trainer:
 
     def train(self):
         # train loop
-        self._save_patient_data(self.train_dataset, "train")
-        self._save_patient_data(self.val_dataset, "val")
+        self._save_patient_data(self.train_loader, "train")
+        self._save_patient_data(self.val_loader, "val")
         print("Training")
         with open(self.training_log_path, mode='a', newline='') as file:
             writer = csv.writer(file)
