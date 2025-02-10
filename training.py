@@ -96,7 +96,7 @@ class Trainer:
         os.makedirs(patient_dir, exist_ok=True)
 
         if patient_id[0] == "error" or os.path.isfile(patient_file):
-            return
+            continue 
         temp = pd.DataFrame()
         x = np.array(x.squeeze()).flatten()
         y = np.array(y.squeeze()).flatten()
