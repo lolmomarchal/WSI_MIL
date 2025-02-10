@@ -112,7 +112,7 @@ class Trainer:
     def _save_patient_data(self, loader, phase):
          phase_path = self.paths[phase]
          print(f"Initializing {phase} directories")
-         with ThreadPoolExecutor(max_workers=os.cpu_count() as executor:  
+         with ThreadPoolExecutor(max_workers=os.cpu_count()) as executor:  
             futures = [executor.submit(self.save_patient_data, data, phase_path) for data in loader]
             
             for future in futures:
