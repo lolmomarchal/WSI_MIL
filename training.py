@@ -91,8 +91,8 @@ class Trainer:
 
     def save_patient(self, phase_path, index, dataset):
         bags, positional, labels, x, y, tile_paths, scales, original_size, patient_id = dataset[index]
-        patient_dir = os.path.join(phase_path, patient_id)
-        patient_file = os.path.join(patient_dir, f"{patient_id}.csv")
+        patient_dir = os.path.join(phase_path, patient_id[0])
+        patient_file = os.path.join(patient_dir, f"{patient_id[0]}.csv")
         os.makedirs(patient_dir, exist_ok=True)
 
         if patient_id[0] == "error" or os.path.isfile(patient_file):
