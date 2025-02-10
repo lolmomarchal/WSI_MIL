@@ -22,6 +22,8 @@ from fold_split import stratified_k_fold_split, stratified_train_test_split
 torch.backends.cuda.matmul.allow_tf32 = True
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
+print(device)
+
 class color:
     reset = '\033[0m'
     BOLD = '\033[01m'
@@ -50,6 +52,7 @@ class Trainer:
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         print(f"device {self.device}")
         self.model = model.to(self.device)
+        
         self.positional_embed = positional_embed
         self.train_loader = train_loader
         self.val_loader = val_loader
@@ -58,6 +61,9 @@ class Trainer:
         self.patience = patience
         self.batch_save = batch_save
         self.criterion = criterion.to(self.device)
+        print(f"Model Device: {next(self.model.parameters()).device}")
+        print(f"Criterion Device: {getattr(self.criterion, 'device', 'N/A')}") 
+        
         self.optimizer = optim.Adam(model.parameters(), lr=1e-4)
         self.best_val_loss = float('inf')
         self.paths = {
@@ -76,38 +82,41 @@ class Trainer:
             os.makedirs(path, exist_ok=True)
         with open(self.training_log_path, 'w', newline='') as f:
             pass
+    def save_patient_data(self, patient_data, phase_path):
+        bags, positional, labels, x, y, tile_paths, scales, original_size, patient_id = patient_data
+        
+        patient_dir = os.path.join(phase_path, patient_id[0])
+        patient_file = os.path.join(patient_dir, f"{patient_id[0]}.csv")
+        os.makedirs(patient_dir, exist_ok=True)
+        
+        if patient_id[0] == "error" or os.path.isfile(patient_file):
+            return  
+        
+        temp = pd.DataFrame()
+        
+        x = np.array(x.squeeze(dim=0)).flatten()
+        y = np.array(y.squeeze(dim=0)).flatten()
+    
+        tile_paths = np.array(tile_paths).flatten()
+        scales = np.repeat(scales, len(x))
+        original_size = np.repeat(int(original_size), len(x))
+    
+        temp["x"] = x
+        temp["y"] = y
+        temp["tile_paths"] = tile_paths
+        temp["scale"] = scales
+        temp["size"] = original_size
+    
+        temp.to_csv(patient_file, index=False)
 
     def _save_patient_data(self, loader, phase):
-        # initializing patient data dir
-        phase_path = self.paths[phase]
-        print(f"Initializing {phase} directories")
-        for bags, positional, labels, x, y, tile_paths, scales, original_size, patient_id in loader:
-            patient_dir = os.path.join(phase_path, patient_id[0])
-            patient_file = os.path.join(patient_dir, f"{patient_id[0]}.csv")
-            print(patient_file)
-            os.makedirs(patient_dir, exist_ok=True)
-            if patient_id[0] == "error" or os.path.isfile(patient_file):
-                continue 
-     
-            temp = pd.DataFrame()
-
-            x = np.array(x.squeeze(dim=0)).flatten()
-            y = np.array(y.squeeze(dim=0)).flatten()
-
-            # Check that tile_paths is a 1D array
-            tile_paths = np.array(tile_paths).flatten()
-            scales = np.repeat(scales, len(x))
-            original_size = np.repeat(int(original_size), len(x))
-
-            # Assign to the DataFrame
-            temp["x"] = x
-            temp["y"] = y
-            temp["tile_paths"] = tile_paths
-            temp["scale"] = scales
-            temp["size"] = original_size
-
-            # Save DataFrame to CSV
-            temp.to_csv(patient_file, index = False)
+         phase_path = self.paths[phase]
+         print(f"Initializing {phase} directories")
+         with ThreadPoolExecutor(max_workers=os.cpu_count() as executor:  
+            futures = [executor.submit(self.save_patient_data, data, phase_path) for data in loader]
+            
+            for future in futures:
+                future.result() 
 
     def _calculate_accuracy(self, outputs, labels):
         preds = torch.argmax(outputs, dim=1)
@@ -295,7 +304,7 @@ def get_args():
     parser.add_argument("--epochs", default=200, type=int)
     parser.add_argument("--k", default=20, type=int)
     parser.add_argument("--tile_selection", default="CLAM")
-    parser.add_argument("--patience", default=20, type=int)
+    parser.add_argument("--patience", default=10, type=int)
     parser.add_argument("--input_dim", default=2048, type=int)
     parser.add_argument("--hidden_dim1", default=512, type=int)
     parser.add_argument("--hidden_dim2", default=256, type=int)
