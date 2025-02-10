@@ -82,42 +82,51 @@ class Trainer:
             os.makedirs(path, exist_ok=True)
         with open(self.training_log_path, 'w', newline='') as f:
             pass
-    def save_patient_data(self, loader, index, phase_path):
+    def save_patient_data(self, queue, phase_path):
+      while not queue.empty():
+        index, batch = queue.get()  # Get batch from queue
         
-        bags, positional, labels, x, y, tile_paths, scales, original_size, patient_id = loader.dataset[index]
+        bags, positional, labels, x, y, tile_paths, scales, original_size, patient_id = batch
         
         patient_dir = os.path.join(phase_path, patient_id[0])
         patient_file = os.path.join(patient_dir, f"{patient_id[0]}.csv")
         os.makedirs(patient_dir, exist_ok=True)
         
         if patient_id[0] == "error" or os.path.isfile(patient_file):
-            return  
+            continue  
         
         temp = pd.DataFrame()
-        
+
         x = np.array(x.squeeze(dim=0)).flatten()
         y = np.array(y.squeeze(dim=0)).flatten()
-    
         tile_paths = np.array(tile_paths).flatten()
         scales = np.repeat(scales, len(x))
         original_size = np.repeat(int(original_size), len(x))
-    
+
         temp["x"] = x
         temp["y"] = y
         temp["tile_paths"] = tile_paths
         temp["scale"] = scales
         temp["size"] = original_size
-    
+
         temp.to_csv(patient_file, index=False)
 
     def _save_patient_data(self, loader, phase):
-         phase_path = self.paths[phase]
-         print(f"Initializing {phase} directories")
-         with ThreadPoolExecutor(max_workers=os.cpu_count()) as executor:  
-            futures = [executor.submit(self.save_patient_data, loader,i,  phase_path) for i in range(len(loader))]
+        phase_path = self.paths[phase]
+        print(f"Initializing {phase} directories")
+        
+        queue = Queue()
+        
+        for i, batch in enumerate(loader):
+            queue.put((i, batch))  
+        
+        num_workers = min(os.cpu_count(), queue.qsize())  
+        
+        with ThreadPoolExecutor(max_workers=num_workers) as executor:
+            futures = [executor.submit(self.save_patient_data, queue, phase_path) for _ in range(num_workers)]
             
-            for future in tqdm(as_completed(futures), total=len(futures), desc="Processing futures"):
-                future.result() 
+            for _ in tqdm(futures, total=len(futures), desc="Processing"):
+                _.result()  # Ensure all tasks complete
 
     def _calculate_accuracy(self, outputs, labels):
         preds = torch.argmax(outputs, dim=1)
