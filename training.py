@@ -10,20 +10,19 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader
-from queue import Queue
 from snorkel.classification import cross_entropy_with_probs
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, confusion_matrix, roc_auc_score
-from concurrent.futures import ThreadPoolExecutor,as_completed
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 # custom
 from models.MIL_model import MIL_SB
 from AttentionDataset import AttentionDataset, InstanceDataset, instance_dataloader
 from models.AttentionModel import GatedAttentionModel
 from fold_split import stratified_k_fold_split, stratified_train_test_split
+
 torch.backends.cuda.matmul.allow_tf32 = True
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-print(device)
 
 class color:
     reset = '\033[0m'
@@ -32,7 +31,8 @@ class color:
     green = '\033[32m'
     yellow = '\033[33m'
     blue = '\033[34m'
-    
+
+
 def patient_id(row):
     if "patient" in row:
         return row.split("_node")[0]
@@ -46,14 +46,19 @@ def patient_id(row):
     else:
         return row
 
+
 class Trainer:
-    def __init__(self, criterion, batch_save, model, train_loader, val_loader, save_path, num_epochs=200, patience=20,
+    def __init__(self, criterion, batch_save, model, train_loader, val_loader, save_path, train_dataset, val_dataset,
+                 num_epochs=200, patience=20,
                  positional_embed=False):
         self.model = model
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         print(f"device {self.device}")
         self.model = model.to(self.device)
-        
+
+        self.train_dataset = train_dataset
+        self.val_dataset = val_dataset
+
         self.positional_embed = positional_embed
         self.train_loader = train_loader
         self.val_loader = val_loader
@@ -63,8 +68,8 @@ class Trainer:
         self.batch_save = batch_save
         self.criterion = criterion.to(self.device)
         print(f"Model Device: {next(self.model.parameters()).device}")
-        print(f"Criterion Device: {getattr(self.criterion, 'device', 'N/A')}") 
-        
+        print(f"Criterion Device: {getattr(self.criterion, 'device', 'N/A')}")
+
         self.optimizer = optim.Adam(model.parameters(), lr=1e-4)
         self.best_val_loss = float('inf')
         self.paths = {
@@ -83,23 +88,18 @@ class Trainer:
             os.makedirs(path, exist_ok=True)
         with open(self.training_log_path, 'w', newline='') as f:
             pass
-    def save_patient_data(self, queue, phase_path):
-      while not queue.empty():
-        index, batch = queue.get()  # Get batch from queue
-        
-        bags, positional, labels, x, y, tile_paths, scales, original_size, patient_id = batch
-        
-        patient_dir = os.path.join(phase_path, patient_id[0])
-        patient_file = os.path.join(patient_dir, f"{patient_id[0]}.csv")
-        os.makedirs(patient_dir, exist_ok=True)
-        
-        if patient_id[0] == "error" or os.path.isfile(patient_file):
-            continue  
-        
-        temp = pd.DataFrame()
 
-        x = np.array(x.squeeze(dim=0)).flatten()
-        y = np.array(y.squeeze(dim=0)).flatten()
+    def save_patient(self, phase_path, index, dataset):
+        bags, positional, labels, x, y, tile_paths, scales, original_size, patient_id = dataset[index]
+        patient_dir = os.path.join(phase_path, patient_id)
+        patient_file = os.path.join(patient_dir, f"{patient_id}.csv")
+        os.makedirs(patient_dir, exist_ok=True)
+
+        if patient_id[0] == "error" or os.path.isfile(patient_file):
+            return
+        temp = pd.DataFrame()
+        x = np.array(x.squeeze()).flatten()
+        y = np.array(y.squeeze()).flatten()
         tile_paths = np.array(tile_paths).flatten()
         scales = np.repeat(scales, len(x))
         original_size = np.repeat(int(original_size), len(x))
@@ -112,35 +112,16 @@ class Trainer:
 
         temp.to_csv(patient_file, index=False)
 
-    def _save_patient_data(self, loader, phase):
+    def _save_patient_data(self, dataset, phase):
         phase_path = self.paths[phase]
         print(f"Initializing {phase} directories")
-        for batch in tqdm(loader, total = len(loader)):
-
-            bags, positional, labels, x, y, tile_paths, scales, original_size, patient_id = batch
-            patient_dir = os.path.join(phase_path, patient_id[0])
-            patient_file = os.path.join(patient_dir, f"{patient_id[0]}.csv")
-            os.makedirs(patient_dir, exist_ok=True)
-            
-            if patient_id[0] == "error" or os.path.isfile(patient_file):
-                continue  
-            
-            temp = pd.DataFrame()
-    
-            x = np.array(x.squeeze(dim=0)).flatten()
-            y = np.array(y.squeeze(dim=0)).flatten()
-            tile_paths = np.array(tile_paths).flatten()
-            scales = np.repeat(scales, len(x))
-            original_size = np.repeat(int(original_size), len(x))
-    
-            temp["x"] = x
-            temp["y"] = y
-            temp["tile_paths"] = tile_paths
-            temp["scale"] = scales
-            temp["size"] = original_size
-    
-            temp.to_csv(patient_file, index=False)
-
+        with ThreadPoolExecutor(max_workers=os.cpu_count()) as executor:
+            futures = {
+                executor.submit(self.save_patient, phase_path, i, dataset): i
+                for i in range(len(dataset))
+            }
+            for future in tqdm(as_completed(futures), total=len(dataset)):
+                future.result()
 
     def _calculate_accuracy(self, outputs, labels):
         preds = torch.argmax(outputs, dim=1)
@@ -149,13 +130,15 @@ class Trainer:
 
     def train(self):
         # train loop
-        self._save_patient_data(self.train_loader, "train")
-        self._save_patient_data(self.val_loader, "val")
+        self._save_patient_data(self.train_dataset, "train")
+        self._save_patient_data(self.val_dataset, "val")
         print("Training")
-
-        with open(self.training_log_path, mode='w', newline='') as file:
+        with open(self.training_log_path, mode='a', newline='') as file:
             writer = csv.writer(file)
-            writer.writerow(['Epoch', 'Train Loss', 'Train Acc', 'Val Loss', 'Val Acc', "Weights Saved"])
+
+            # Write header only if the file is empty
+            if file.tell() == 0:
+                writer.writerow(['Epoch', 'Train Loss', 'Train Acc', 'Val Loss', 'Val Acc', "Weights Saved"])
 
             for epoch in range(self.num_epochs):
                 train_loss, train_accuracy = self._train_epoch(epoch)
@@ -166,9 +149,11 @@ class Trainer:
 
                 saved = "YES" if self._save_best_model(val_loss, epoch) else None
                 if saved == "YES":
-                    self.best_weights_path = os.path.join(self.paths["weights"], f"weights_epoch_{epoch+1}.pth")
+                    self.best_weights_path = os.path.join(self.paths["weights"], f"weights_epoch_{epoch + 1}.pth")
                     print(f"Model saved with val_loss: {val_loss:.4f}")
+
                 writer.writerow([epoch + 1, train_loss, train_accuracy, val_loss, val_accuracy, saved])
+                file.flush()
 
                 if self.patience_counter >= self.patience:
                     print("Early stopping triggered.")
@@ -180,14 +165,13 @@ class Trainer:
         for bags, positional, labels, x, y, tile_paths, scales, original_size, patient_id in tqdm(self.train_loader,
                                                                                                   desc=f"Epoch {epoch + 1} [Train]"):
             if patient_id[0] == "error" or len(tile_paths) < 40:
-                continue 
+                continue
             bags, positional, labels = bags.to(self.device), positional.to(self.device), labels.to(self.device)
             self.model.train()
-            values = positional*0.1 + bags if self.positional_embed else bags
+            values = positional * 0.1 + bags if self.positional_embed else bags
 
             if labels.dtype != torch.long:
                 labels = labels.long()
-            
 
             self.optimizer.zero_grad()
             logits, Y_prob, _, A_raw, results_dict, h = self.model(values, label=labels, instance_eval=True)
@@ -216,9 +200,10 @@ class Trainer:
 
     def _validate_epoch(self, epoch):
         running_loss, running_correct, total = 0.0, 0, 0
-        for bags, positional, labels, x, y, tile_paths, scales, original_size, patient_id in tqdm(self.val_loader,desc=f"Epoch {epoch + 1} [Val]"):
+        for bags, positional, labels, x, y, tile_paths, scales, original_size, patient_id in tqdm(self.val_loader,
+                                                                                                  desc=f"Epoch {epoch + 1} [Val]"):
             if patient_id[0] == "error":
-                continue 
+                continue
             bags, positional, labels = bags.to(self.device), positional.to(self.device), labels.to(self.device)
             with torch.no_grad():
                 self.model.eval()
@@ -246,7 +231,7 @@ class Trainer:
         if val_loss < self.best_val_loss:
             self.best_val_loss = val_loss
             self.patience_counter = 0
-            torch.save(self.model.state_dict(), os.path.join(self.paths["weights"], f"weights_epoch_{epoch +1}.pth"))
+            torch.save(self.model.state_dict(), os.path.join(self.paths["weights"], f"weights_epoch_{epoch + 1}.pth"))
             return True
         self.patience_counter += 1
         return False
@@ -263,39 +248,42 @@ class Trainer:
                 if self.positional_embed:
                     values = instance.unsqueeze(1) + position.unsqueeze(1)
                 else:
-                    values =  instance.unsqueeze(1)
+                    values = instance.unsqueeze(1)
                 logits_inst, Y_prob_inst, Y_hat_inst, A_raw_inst, dict, h = self.model(values,
-                                                                                  instance_eval=False)
+                                                                                       instance_eval=False)
                 instance_labels.append(Y_hat_inst.item())
                 instance_probs.append(Y_prob_inst[:, 1].item())
         return instance_labels, instance_probs
 
     def _save_attention(self, epoch, A_raw, bags, positional, patient_id, h, phase="train"):
         if phase == "train":
-            patient_path = os.path.join(self.paths["train"],patient_id[0],f"{patient_id[0]}.csv")
-            cluster_path = os.path.join(self.paths["train"],patient_id[0],f"{patient_id[0]}_cluster.h5")
+            patient_path = os.path.join(self.paths["train"], patient_id[0], f"{patient_id[0]}.csv")
+            cluster_path = os.path.join(self.paths["train"], patient_id[0], f"{patient_id[0]}_cluster.h5")
         else:
-            patient_path = os.path.join(self.paths["val"],patient_id[0],f"{patient_id[0]}.csv")
-            cluster_path = os.path.join(self.paths["val"],patient_id[0],f"{patient_id[0]}_cluster.h5")
+            patient_path = os.path.join(self.paths["val"], patient_id[0], f"{patient_id[0]}.csv")
+            cluster_path = os.path.join(self.paths["val"], patient_id[0], f"{patient_id[0]}_cluster.h5")
         patient_csv = pd.read_csv(patient_path)
         patient_csv[f"attention_{epoch + 1}"] = A_raw.squeeze(dim=1).squeeze().detach().cpu().numpy()
         instance_labels, instance_probs = self._instance_eval(bags, positional)
-        
-        instance_labels = [label.cpu().item() if isinstance(label, torch.Tensor) else label for label in instance_labels]
+
+        instance_labels = [label.cpu().item() if isinstance(label, torch.Tensor) else label for label in
+                           instance_labels]
         instance_probs = [prob.cpu().item() if isinstance(prob, torch.Tensor) else prob for prob in instance_probs]
-        
+
         patient_csv[f"instance_label_{epoch + 1}"] = np.array(instance_labels)
         patient_csv[f"instance_prob_{epoch + 1}"] = np.array(instance_probs)
-        patient_csv.to_csv(patient_path, index = False)
+        patient_csv.to_csv(patient_path, index=False)
 
         #  save cluster info
         with h5py.File(cluster_path, "a") as file:
             if f'cluster_epoch_{epoch}' in file.keys():
                 del file[f'cluster_epoch_{epoch}']
 
-            file.create_dataset(f'cluster_epoch_{epoch}', data=h.detach().cpu().numpy() )
+            file.create_dataset(f'cluster_epoch_{epoch}', data=h.detach().cpu().numpy())
+
 
 def evaluate(model, dataloader, instance_eval=False):
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model.to(device)
     model.eval()
     all_preds, all_probs, all_labels = [], [], []
@@ -340,8 +328,6 @@ def get_args():
     return parser.parse_args()
 
 
-
-
 def write_eval_crossval(fold_data, save_path, index):
     evaluation_df = pd.DataFrame(fold_data)
     metrics = {
@@ -356,7 +342,6 @@ def write_eval_crossval(fold_data, save_path, index):
     evaluation_df.index = index
     evaluation_df.to_csv(save_path)
     print(evaluation_df)
-
 
 
 def main():
@@ -388,10 +373,12 @@ def main():
         # 3. For fold, train model
         for i, (train_data, val_data) in enumerate(folds):
             print(f"\nFold {i + 1}")
-            index.append(f"Folds {i}")
+            index.append(f"Folds {i + 1}")
             # get the loaders
-            train_loader = DataLoader(AttentionDataset(train_data.reset_index()), batch_size=1, shuffle=True)
-            val_loader = DataLoader(AttentionDataset(val_data.reset_index()), batch_size=1)
+            train_dataset = AttentionDataset(train_data.reset_index())
+            val_dataset = AttentionDataset(val_data.reset_index())
+            train_loader = DataLoader(train_dataset, batch_size=1, shuffle=True)
+            val_loader = DataLoader(val_dataset, batch_size=1)
             # initiate model
             instance_loss = cross_entropy_with_probs
             model = MIL_SB(instance_loss, input_dim=args.input_dim, hidden_dim1=args.hidden_dim1,
@@ -399,37 +386,43 @@ def main():
                            k=args.k, k_selection=args.tile_selection)
             # general criterion
 
-            print(f" number of positive samples  {len(train_data[train_data['target'] == 1])} number of negative samples {len(train_data[train_data['target'] == 0])}")
+            print(
+                f" number of positive samples  {len(train_data[train_data['target'] == 1])} number of negative samples {len(train_data[train_data['target'] == 0])}")
             pos_num = len(train_data[train_data["target"] == 1]) / len(train_data)
             # weights would be
             weights = torch.tensor([pos_num, (1 - pos_num)])
-            criterion = nn.BCEWithLogitsLoss(weight = weights)
+            criterion = nn.BCEWithLogitsLoss(weight=weights)
             print(f"weights {weights}")
 
-            save_path = os.path.join(args.training_output, f"fold_{i}")
-            trainer = Trainer(criterion, args.batch_save, model, train_loader, val_loader, save_path, args.epochs,
-                              args.patience, positional_embed=args.positional_embed)
+            save_path = os.path.join(args.training_output, f"fold_{i + 1}")
+            trainer = Trainer(criterion, args.batch_save, model, train_loader, val_loader, save_path, train_dataset,
+                              val_dataset, num_epochs=args.epochs,
+                              patience=args.patience, positional_embed=args.positional_embed)
+
             trainer.train()
-            print(f"Evaluating fold {i}")
+            print(f"Evaluating fold {i + 1}")
             best_weights = trainer.best_weights_path
             model.load_state_dict(torch.load(best_weights, weights_only=True))
 
             # now eval
             test_loader = DataLoader(AttentionDataset(test.reset_index()), batch_size=1)
-            results = evaluate(model, test_loader, device="cpu", instance_eval=False)
+            results = evaluate(model, test_loader, instance_eval=False)
             fold_metrics_testing.append(results)
-            results = evaluate(model, val_loader, device="cpu", instance_eval=False)
+            results = evaluate(model, val_loader, instance_eval=False)
             fold_metrics_val.append(results)
-            write_eval_crossval([fold_metrics_testing[i], fold_metrics_val[i]], os.path.join(save_path, "test-val_eval.csv"), ["Testing", "Validation", "Average"])
+            write_eval_crossval([fold_metrics_testing[i], fold_metrics_val[i]],
+                                os.path.join(save_path, "test-val_eval.csv"), ["Testing", "Validation", "Average"])
 
         print("Done with cross-val")
 
         index.append("Average")
         # get and save average performance for testing
         print("Testing:")
-        write_eval_crossval(fold_metrics_testing, os.path.join(args.training_output, "testing_fold_evaluations.csv"), index)
+        write_eval_crossval(fold_metrics_testing, os.path.join(args.training_output, "testing_fold_evaluations.csv"),
+                            index)
         print("Validation:")
-        write_eval_crossval(fold_metrics_val[i], os.path.join(args.training_output, "validation_fold_evaluations.csv"), index)
+        write_eval_crossval(fold_metrics_val[i], os.path.join(args.training_output, "validation_fold_evaluations.csv"),
+                            index)
 
     # now do regular train-test-split
 
@@ -440,13 +433,15 @@ def main():
                                               random_state=42
                                               )
     val, test = stratified_train_test_split(data=test,
-                                              label_column='target',
-                                              patient_id_column='patient_id',
-                                              test_size=0.5,
-                                              random_state=42
-                                              )
-    train_loader = DataLoader(AttentionDataset(train.reset_index()), batch_size=1, shuffle=True)
-    val_loader = DataLoader(AttentionDataset(val.reset_index()), batch_size=1)
+                                            label_column='target',
+                                            patient_id_column='patient_id',
+                                            test_size=0.5,
+                                            random_state=42
+                                            )
+    train_dataset = AttentionDataset(train.reset_index())
+    val_dataset = AttentionDataset(val.reset_index())
+    train_loader = DataLoader(train_dataset, batch_size=1, shuffle=True)
+    val_loader = DataLoader(val_dataset, batch_size=1)
     # initiate model
     instance_loss = cross_entropy_with_probs
     model = MIL_SB(instance_loss, input_dim=args.input_dim, hidden_dim1=args.hidden_dim1,
@@ -456,7 +451,7 @@ def main():
 
     pos_num = len(train[train["target"] == 1]) / len(train)
     weights = torch.tensor([pos_num, (1 - pos_num)])
-    criterion = nn.BCEWithLogitsLoss(weight = weights)
+    criterion = nn.BCEWithLogitsLoss(weight=weights)
     print(f"weight {weights}")
 
     save_path = os.path.join(args.training_output, f"train-test-split")
@@ -467,10 +462,11 @@ def main():
     model.load_state_dict(torch.load(best_weights, weights_only=True))
     # now eval
     test_loader = DataLoader(AttentionDataset(test.reset_index()), batch_size=1)
-    results_test= evaluate(model, test_loader, device="cpu", instance_eval=False)
-    results_val = evaluate(model, val_loader, device="cpu", instance_eval=False)
+    results_test = evaluate(model, test_loader, instance_eval=False)
+    results_val = evaluate(model, val_loader, instance_eval=False)
 
-    write_eval_crossval([results_test, results_val], os.path.join(save_path, "test-val_eval.csv"), ["Testing", "Validation", "Average"])
+    write_eval_crossval([results_test, results_val], os.path.join(save_path, "test-val_eval.csv"),
+                        ["Testing", "Validation", "Average"])
 
 
 if __name__ == "__main__":
