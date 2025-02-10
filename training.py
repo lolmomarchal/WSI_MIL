@@ -159,18 +159,17 @@ class Trainer:
                 continue 
             bags, positional, labels = bags.to(self.device), positional.to(self.device), labels.to(self.device)
             self.model.train()
-            if self.positional_embed:
-                values = positional + bags
-            else:
-                values = bags
+            values = positional*0.1 + bags if self.positional_embed else bags
+
             if labels.dtype != torch.long:
                 labels = labels.long()
             
 
             self.optimizer.zero_grad()
             logits, Y_prob, _, A_raw, results_dict, h = self.model(values, label=labels, instance_eval=True)
-            labels_one_hot = nn.functional.one_hot(labels, num_classes=self.model.n_classes).float()
+            labels_one_hot = nn.functional.one_hot(labels, num_classes=self.model.n_classes).float().to(self.device)
             # now get the loss
+            logits = logits.to(self.device)
             loss = self.criterion(logits, labels_one_hot)
             inst_count += 1
             instance_loss = results_dict["instance_loss"].item()
