@@ -115,7 +115,7 @@ class Trainer:
          with ThreadPoolExecutor(max_workers=os.cpu_count()) as executor:  
             futures = [executor.submit(self.save_patient_data, data, phase_path) for data in loader]
             
-            for future in futures:
+            for future in tqdm(as_completed(futures), total=len(futures), desc="Processing futures"):
                 future.result() 
 
     def _calculate_accuracy(self, outputs, labels):
