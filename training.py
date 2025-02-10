@@ -84,7 +84,7 @@ class Trainer:
             pass
     def save_patient_data(self, loader, index, phase_path):
         
-        bags, positional, labels, x, y, tile_paths, scales, original_size, patient_id = loader[index]
+        bags, positional, labels, x, y, tile_paths, scales, original_size, patient_id = loader.dataset[index]
         
         patient_dir = os.path.join(phase_path, patient_id[0])
         patient_file = os.path.join(patient_dir, f"{patient_id[0]}.csv")
