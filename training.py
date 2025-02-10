@@ -117,8 +117,8 @@ class Trainer:
         print(f"Initializing {phase} directories")
         for batch in tqdm(dataset, total = len(dataset)):
             bags, positional, labels, x, y, tile_paths, scales, original_size, patient_id = batch
-            patient_dir = os.path.join(phase_path, patient_id)
-            patient_file = os.path.join(patient_dir, f"{patient_id}.csv")
+            patient_dir = os.path.join(phase_path, patient_id[0])
+            patient_file = os.path.join(patient_dir, f"{patient_id[0]}.csv")
             os.makedirs(patient_dir, exist_ok=True)
     
             if patient_id[0] == "error" or os.path.isfile(patient_file):
