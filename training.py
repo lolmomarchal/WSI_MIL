@@ -444,7 +444,7 @@ def main():
         write_eval_crossval(fold_metrics_testing, os.path.join(args.training_output, "testing_fold_evaluations.csv"),
                             index)
         print("Validation:")
-        write_eval_crossval(fold_metrics_val[i], os.path.join(args.training_output, "validation_fold_evaluations.csv"),
+        write_eval_crossval(fold_metrics_val, os.path.join(args.training_output, "validation_fold_evaluations.csv"),
                             index)
 
     # now do regular train-test-split
