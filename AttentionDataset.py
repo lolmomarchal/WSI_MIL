@@ -74,7 +74,7 @@ class AttentionDataset(data.Dataset):
                 features = torch.from_numpy(hdf5_file['features'][:])
                 x = hdf5_file['x'][:]
                 y = hdf5_file['y'][:]
-                if "tile_path" in hdfr_file.keys():
+                if "tile_path" in hdf5_file.keys():
                     tile_paths = [path.decode('utf-8') for path in hdf5_file['tile_path'][:]]
                 else:
                     tile_paths = [path.decode('utf-8') for path in hdf5_file['tile_paths'][:]]
