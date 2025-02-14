@@ -63,7 +63,7 @@ class AttentionDataset(data.Dataset):
             slide = openslide.OpenSlide(self.original_slide[index])
             magnification = int(slide.properties.get("openslide.objective-power", 40))  # Default to 40x if missing
         except Exception as e:
-            print(f"Warning: Failed to load slide for index {index}: {e}")
+            #print(f"Warning: Failed to load slide for index {index}: {e}")
             magnification = 40  
 
         original_size = best_size(magnification, 256, 20)
@@ -74,7 +74,11 @@ class AttentionDataset(data.Dataset):
                 features = torch.from_numpy(hdf5_file['features'][:])
                 x = hdf5_file['x'][:]
                 y = hdf5_file['y'][:]
-                tile_paths = [path.decode('utf-8') for path in hdf5_file['tile_path'][:]]
+                if "tile_path" in hdfr_file.keys():
+                    tile_paths = [path.decode('utf-8') for path in hdf5_file['tile_path'][:]]
+                else:
+                    tile_paths = [path.decode('utf-8') for path in hdf5_file['tile_paths'][:]]
+
 
                 scales = 64  
                 magnifications = hdf5_file.get('mag', np.array([40]))[0]  
