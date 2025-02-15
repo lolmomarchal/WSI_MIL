@@ -184,38 +184,42 @@ class Trainer:
 
     def _train_epoch(self, epoch):
         running_loss, running_correct, total, inst_count, train_inst_loss = 0.0, 0, 0, 0, 0
+        
 
         for bags, positional, labels, x, y, tile_paths, scales, original_size, patient_id in tqdm(self.train_loader,
                                                                                                   desc=f"Epoch {epoch + 1} [Train]"):
             if patient_id[0] == "error" or len(tile_paths) < 40:
                 continue
-            bags, positional, labels = bags.to(self.device), positional.to(self.device), labels.to(self.device)
-            self.model.train()
-            values = positional * 0.1 + bags if self.positional_embed else bags
-
-            if labels.dtype != torch.long:
-                labels = labels.long()
-
-            self.optimizer.zero_grad()
-            logits, Y_prob, _, A_raw, results_dict, h = self.model(values, label=labels, instance_eval=True)
-            labels_one_hot = nn.functional.one_hot(labels, num_classes=self.model.n_classes).float().to(self.device)
-            # now get the loss
-            logits = logits.to(self.device)
-            loss = self.criterion(logits, labels_one_hot)
-            inst_count += 1
-            instance_loss = results_dict["instance_loss"].item()
-            train_inst_loss += instance_loss
-            c1 = 0.7
-            total_loss = c1 * loss + (1 - c1) * instance_loss
-            total_loss.backward()
-            self.optimizer.step()
-            running_loss += loss.item()
-            running_correct += (logits.argmax(dim=1) == labels).sum().item()
-            total += labels.size(0)
-
-            # if we want to save attention + get instance eval
-            if epoch % self.batch_save == 0:
-                self._save_attention(epoch, A_raw, bags, positional, patient_id, h)
+            try:
+                bags, positional, labels = bags.to(self.device), positional.to(self.device), labels.to(self.device)
+                self.model.train()
+                values = positional * 0.1 + bags if self.positional_embed else bags
+    
+                if labels.dtype != torch.long:
+                    labels = labels.long()
+    
+                self.optimizer.zero_grad()
+                logits, Y_prob, _, A_raw, results_dict, h = self.model(values, label=labels, instance_eval=True)
+                labels_one_hot = nn.functional.one_hot(labels, num_classes=self.model.n_classes).float().to(self.device)
+                # now get the loss
+                logits = logits.to(self.device)
+                loss = self.criterion(logits, labels_one_hot)
+                inst_count += 1
+                instance_loss = results_dict["instance_loss"].item()
+                train_inst_loss += instance_loss
+                c1 = 0.7
+                total_loss = c1 * loss + (1 - c1) * instance_loss
+                total_loss.backward()
+                self.optimizer.step()
+                running_loss += loss.item()
+                running_correct += (logits.argmax(dim=1) == labels).sum().item()
+                total += labels.size(0)
+    
+                # if we want to save attention + get instance eval
+                if epoch % self.batch_save == 0:
+                    self._save_attention(epoch, A_raw, bags, positional, patient_id, h)
+            except: 
+                continue
 
         train_loss = running_loss / len(self.train_loader)
         train_accuracy = running_correct / total
@@ -227,24 +231,27 @@ class Trainer:
                                                                                                   desc=f"Epoch {epoch + 1} [Val]"):
             if patient_id[0] == "error":
                 continue
-            bags, positional, labels = bags.to(self.device), positional.to(self.device), labels.to(self.device)
-            with torch.no_grad():
-                self.model.eval()
-                if self.positional_embed:
-                    values = positional + bags
-                else:
-                    values = bags
-                logits, Y_prob, _, A_raw, results_dict, h = self.model(values, label=labels)
-                labels_one_hot = nn.functional.one_hot(labels, num_classes=self.model.n_classes).float()
-                logits = torch.sigmoid(logits)
-                loss = self.criterion(logits, labels_one_hot)
-
-                running_loss += loss.item()
-                running_correct += (logits.argmax(dim=1) == labels).sum().item()
-                total += labels.size(0)
-
-                if epoch % self.batch_save == 0:
-                    self._save_attention(epoch, A_raw, bags, positional, patient_id, h, phase="val")
+            try:
+                bags, positional, labels = bags.to(self.device), positional.to(self.device), labels.to(self.device)
+                with torch.no_grad():
+                    self.model.eval()
+                    if self.positional_embed:
+                        values = positional + bags
+                    else:
+                        values = bags
+                    logits, Y_prob, _, A_raw, results_dict, h = self.model(values, label=labels)
+                    labels_one_hot = nn.functional.one_hot(labels, num_classes=self.model.n_classes).float()
+                    logits = torch.sigmoid(logits)
+                    loss = self.criterion(logits, labels_one_hot)
+    
+                    running_loss += loss.item()
+                    running_correct += (logits.argmax(dim=1) == labels).sum().item()
+                    total += labels.size(0)
+    
+                    if epoch % self.batch_save == 0:
+                        self._save_attention(epoch, A_raw, bags, positional, patient_id, h, phase="val")
+                except:
+                    continue 
 
         val_loss = running_loss / len(self.val_loader)
         val_accuracy = running_correct / total
@@ -313,12 +320,15 @@ def evaluate(model, dataloader, instance_eval=False):
 
     with torch.no_grad():
         for bags, _, labels, _, _, _, _, _, _ in dataloader:
-            bags, labels = bags.to(device), labels.to(device)
-            outputs = model(bags)
-            logits, Y_prob, Y_hat, _, _, _ = outputs
-            all_probs.extend(Y_prob[:, 1].cpu().numpy())
-            all_preds.extend(Y_hat.cpu().numpy().flatten())
-            all_labels.extend(labels.cpu().numpy().flatten())
+            try:
+                bags, labels = bags.to(device), labels.to(device)
+                outputs = model(bags)
+                logits, Y_prob, Y_hat, _, _, _ = outputs
+                all_probs.extend(Y_prob[:, 1].cpu().numpy())
+                all_preds.extend(Y_hat.cpu().numpy().flatten())
+                all_labels.extend(labels.cpu().numpy().flatten())
+            except:
+                continue 
 
     return {
         'accuracy': accuracy_score(all_labels, all_preds),
