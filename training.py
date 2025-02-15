@@ -250,7 +250,7 @@ class Trainer:
     
                     if epoch % self.batch_save == 0:
                         self._save_attention(epoch, A_raw, bags, positional, patient_id, h, phase="val")
-                except:
+            except:
                     continue 
 
         val_loss = running_loss / len(self.val_loader)
