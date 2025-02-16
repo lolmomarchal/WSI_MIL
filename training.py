@@ -186,7 +186,7 @@ class Trainer:
                 # if we want to save attention + get instance eval
                 if epoch % self.batch_save == 0:
                     self._save_attention(epoch, A_raw, bags, positional, patient_id, h)
-            except as e : 
+            except Exception as e : 
                 print(e)
                 continue
 
