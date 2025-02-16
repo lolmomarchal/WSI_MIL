@@ -488,8 +488,9 @@ def main():
     print(f"weight {weights}")
 
     save_path = os.path.join(args.training_output, f"train-test-split")
-    trainer = Trainer(criterion, args.batch_save, model, train_loader, val_loader, save_path, args.epochs,
-                      args.patience, positional_embed=args.positional_embed)
+    trainer = Trainer(criterion, args.batch_save, model, train_loader, val_loader, save_path, train_dataset,
+                              val_dataset, num_epochs=args.epochs,
+                              patience=args.patience, positional_embed=args.positional_embed)
     trainer.train()
     best_weights = trainer.best_weights_path
     model.load_state_dict(torch.load(best_weights, weights_only=True))
