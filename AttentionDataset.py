@@ -33,7 +33,7 @@ def positional_embeddings_sin_cos(x, y, d_model=2048):
 
 
 class AttentionDataset(data.Dataset):
-    def __init__(self, dataFile='', transform=None, positional_embed = True):
+    def __init__(self, dataFile='', transform=None, positional_embed = True, type_embed = None):
         if isinstance(dataFile,str):
             self.slideData = pd.read_csv(dataFile, sep=",", header=0, index_col=0)
         else:
@@ -45,16 +45,7 @@ class AttentionDataset(data.Dataset):
         self.files = list(self.slideData['Encoded Path'])
         self.original_slide = list(self.slideData['Original Slide Path'])
         self.positional_embeddings = []
-
-        # # 2d positional embed
-        # if positional_embed:
-        #     for file_path in self.files:
-        #         with h5py.File(file_path, 'r') as hdf5_file:
-        #             x_coords = hdf5_file['x'][:]
-        #             y_coords = hdf5_file['y'][:]
-        #
-        #             embeddings = [positional_embeddings_sin_cos(x_coord, y_coord) for x_coord, y_coord in zip(x_coords, y_coords)]
-        #             self.positional_embeddings.append(torch.from_numpy(np.array(embeddings)))
+        self.type_embed = type_embed
 
     def __getitem__(self, index):
         label = self.labels[index]
@@ -82,10 +73,15 @@ class AttentionDataset(data.Dataset):
 
                 scales = 64  
                 magnifications = hdf5_file.get('mag', np.array([40]))[0]  
-
-                positional_embed = torch.from_numpy(np.array([
-                    positional_embeddings_sin_cos(x_coord, y_coord) for x_coord, y_coord in zip(x, y)
-                ]))
+                if self.type_embed == "2D":
+                    
+                    positional_embed = torch.from_numpy(np.array([
+                        positional_embeddings_sin_cos(x_coord, y_coord) for x_coord, y_coord in zip(x, y)
+                    ]))
+                else:
+                    positional_embed = hdf5_file['positional_embeddings'][:]
+                    positional_embed = torch.from_numpy(positional_embed)
+                    
 
             return features, positional_embed, label, x, y, tile_paths, scales, original_size, patient_id
 
