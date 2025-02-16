@@ -33,7 +33,7 @@ def positional_embeddings_sin_cos(x, y, d_model=2048):
 
 
 class AttentionDataset(data.Dataset):
-    def __init__(self, dataFile='', transform=None, positional_embed = True, type_embed = None):
+    def __init__(self, dataFile='', transform=None, positional_embed = True, type_embed = "2D"):
         if isinstance(dataFile,str):
             self.slideData = pd.read_csv(dataFile, sep=",", header=0, index_col=0)
         else:
