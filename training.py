@@ -289,14 +289,14 @@ def evaluate(model, dataloader, instance_eval=False):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model.to(device)
     model.eval()
+
     all_preds, all_probs, all_labels = [], [], []
 
     with torch.no_grad():
-        for bags, _, labels, _, _, _, _, _, _ in dataloader:
+        for bags, positional, labels, _, _, _, _, _, _ in dataloader:
             try:
-                bags, labels = bags.to(device), labels.to(device)
-                outputs = model(bags)
-                logits, Y_prob, Y_hat, _, _, _ = outputs
+                bags, labels, positional = bags.to(device), labels.to(device), positional.to(device)
+                logits, Y_prob, Y_hat, _, _, _ =  model(bags, pos = positional ,label=labels, instance_eval=instance_eval)
                 all_probs.extend(Y_prob[:, 1].cpu().numpy())
                 all_preds.extend(Y_hat.cpu().numpy().flatten())
                 all_labels.extend(labels.cpu().numpy().flatten())
