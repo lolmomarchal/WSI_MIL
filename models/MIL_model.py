@@ -160,7 +160,8 @@ class MIL_SB(nn.Module):
             h = self.positional_(h)
             h = self.relu(h)
             h = self.dropout(h)
-        A, h = self.attention_net(h)
+            
+        A, h = self.attention_net(h.float())
         # print(f"h shape {h.shape}")
         A_raw = A
 
