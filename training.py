@@ -89,29 +89,6 @@ class Trainer:
         with open(self.training_log_path, 'w', newline='') as f:
             pass
 
-    # def save_patient(self, phase_path, index, dataset):
-    #     bags, positional, labels, x, y, tile_paths, scales, original_size, patient_id = dataset[index]
-    #     patient_dir = os.path.join(phase_path, patient_id[0])
-    #     patient_file = os.path.join(patient_dir, f"{patient_id[0]}.csv")
-    #     os.makedirs(patient_dir, exist_ok=True)
-
-    #     if patient_id[0] == "error" or os.path.isfile(patient_file):
-    #         continue 
-    #     temp = pd.DataFrame()
-    #     x = np.array(x.squeeze()).flatten()
-    #     y = np.array(y.squeeze()).flatten()
-    #     tile_paths = np.array(tile_paths).flatten()
-    #     scales = np.repeat(scales, len(x))
-    #     original_size = np.repeat(int(original_size), len(x))
-
-    #     temp["x"] = x
-    #     temp["y"] = y
-    #     temp["tile_paths"] = tile_paths
-    #     temp["scale"] = scales
-    #     temp["size"] = original_size
-
-    #     temp.to_csv(patient_file, index=False)
-
     def _save_patient_data(self, dataset, phase):
         phase_path = self.paths[phase]
         print(f"Initializing {phase} directories")
@@ -137,15 +114,6 @@ class Trainer:
             temp["size"] = original_size
     
             temp.to_csv(patient_file, index=False)
-            
-        # with ThreadPoolExecutor(max_workers=os.cpu_count()) as executor:
-        #     futures = {
-        #         executor.submit(self.save_patient, phase_path, i, dataset): i
-        #         for i in range(len(dataset))
-        #     }
-        #     for future in tqdm(as_completed(futures), total=len(dataset)):
-        #         future.result()
-
     def _calculate_accuracy(self, outputs, labels):
         preds = torch.argmax(outputs, dim=1)
         correct = (preds == labels).sum().item()
@@ -358,6 +326,7 @@ def get_args():
     parser.add_argument("--dropout", default=0.35, type=float)
     parser.add_argument("--k_causal", default=20, type=int)
     parser.add_argument("--batch_save", default=5, type=int)
+    parser.add_argument("--position_type", default = None)
     return parser.parse_args()
 
 
