@@ -156,18 +156,22 @@ class Trainer:
 
         for bags, positional, labels, x, y, tile_paths, scales, original_size, patient_id in tqdm(self.train_loader,
                                                                                                   desc=f"Epoch {epoch + 1} [Train]"):
-            if patient_id[0] == "error" or len(tile_paths) < 40:
+            if patient_id[0] == "error":
                 continue
             try:
                 bags, positional, labels = bags.to(self.device), positional.to(self.device), labels.to(self.device)
                 self.model.train()
-                values = positional * 0.1 + bags if self.positional_embed else bags
     
                 if labels.dtype != torch.long:
                     labels = labels.long()
     
                 self.optimizer.zero_grad()
-                logits, Y_prob, _, A_raw, results_dict, h = self.model(values, label=labels, instance_eval=True)
+                if positional is not None:
+                    logits, Y_prob, _, A_raw, results_dict, h = self.model(values, pos = positional label=labels, instance_eval=True)
+                else:
+                     logits, Y_prob, _, A_raw, results_dict, h = self.model(values, pos = None label=labels, instance_eval=True)
+
+                    
                 labels_one_hot = nn.functional.one_hot(labels, num_classes=self.model.n_classes).float().to(self.device)
                 # now get the loss
                 logits = logits.to(self.device)
@@ -204,10 +208,11 @@ class Trainer:
                 bags, positional, labels = bags.to(self.device), positional.to(self.device), labels.to(self.device)
                 with torch.no_grad():
                     self.model.eval()
-                    if self.positional_embed:
-                        values = positional + bags
+                    if positional is not None:
+                        logits, Y_prob, _, A_raw, results_dict, h = self.model(values, pos = positional label=labels, instance_eval=True)
                     else:
-                        values = bags
+                         logits, Y_prob, _, A_raw, results_dict, h = self.model(values, pos = None label=labels, instance_eval=True)
+                   
                     logits, Y_prob, _, A_raw, results_dict, h = self.model(values, label=labels)
                     labels_one_hot = nn.functional.one_hot(labels, num_classes=self.model.n_classes).float()
                     logits = torch.sigmoid(logits)
