@@ -167,9 +167,9 @@ class Trainer:
     
                 self.optimizer.zero_grad()
                 if positional is not None:
-                    logits, Y_prob, _, A_raw, results_dict, h = self.model(values, pos = positional label=labels, instance_eval=True)
+                    logits, Y_prob, _, A_raw, results_dict, h = self.model(values, pos = positional,label=labels, instance_eval=True)
                 else:
-                     logits, Y_prob, _, A_raw, results_dict, h = self.model(values, pos = None label=labels, instance_eval=True)
+                     logits, Y_prob, _, A_raw, results_dict, h = self.model(values, pos = None,label=labels, instance_eval=True)
 
                     
                 labels_one_hot = nn.functional.one_hot(labels, num_classes=self.model.n_classes).float().to(self.device)
@@ -209,9 +209,9 @@ class Trainer:
                 with torch.no_grad():
                     self.model.eval()
                     if positional is not None:
-                        logits, Y_prob, _, A_raw, results_dict, h = self.model(values, pos = positional label=labels, instance_eval=True)
+                        logits, Y_prob, _, A_raw, results_dict, h = self.model(values, pos = positional ,label=labels, instance_eval=True)
                     else:
-                         logits, Y_prob, _, A_raw, results_dict, h = self.model(values, pos = None label=labels, instance_eval=True)
+                         logits, Y_prob, _, A_raw, results_dict, h = self.model(values, pos = None ,label=labels, instance_eval=True)
                    
                     logits, Y_prob, _, A_raw, results_dict, h = self.model(values, label=labels)
                     labels_one_hot = nn.functional.one_hot(labels, num_classes=self.model.n_classes).float()
