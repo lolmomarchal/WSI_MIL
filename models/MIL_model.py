@@ -24,6 +24,7 @@ class MIL_SB(nn.Module):
         self.relu = nn.ReLU()
         self.positional_ = nn.Linear(input_dim*2, input_dim)
         self.dropout = nn.Dropout(dropout_rate)
+        self.k_middle = self.k
 
     def instance_evaluation(self, A, h, classifier):
         #print("Eval in")
@@ -99,15 +100,20 @@ class MIL_SB(nn.Module):
         elif self.k_selection == "middle":
             # this one doesn't shuffle, instead it chooses from directly in the middle
 
-            mid_k = self.k // 2
-            sorted_indices = torch.argsort(A)
-            mid_indices = sorted_indices[self.k // 2: -self.k // 2]
-            if len(mid_indices) > mid_k:
-                mid_indices = mid_indices[torch.randperm(len(mid_indices))[:mid_k]]
-            mid_k = torch.index_select(h, dim=0, index=mid_indices)
-            mid_targets = torch.full((mid_k.size(0),), 0.5, device=device).long()
-            all_instances = torch.cat([top_k, bottom_k, mid_k], dim=0)
-            all_targets = torch.cat([top_targets, bottom_targets, mid_targets], dim=0)
+           sorted_indices = torch.argsort(A)
+    
+           remaining_indices = sorted_indices[self.k: -self.k]
+                   if len(remaining_indices) <= self.k_middle:
+                mid_indices = remaining_indices
+           else:
+                mid_start = (len(remaining_indices) - self.k_middle) // 2
+                mid_indices = remaining_indices[mid_start: mid_start + self.k_middle]
+        
+           mid_k = torch.index_select(h, dim=0, index=mid_indices)
+           mid_targets = torch.full((mid_k.size(0),), 0.5, device=device).long()
+        
+           all_instances = torch.cat([top_k, bottom_k, mid_k], dim=0)
+           all_targets = torch.cat([top_targets, bottom_targets, mid_targets], dim=0)
 
 
         logits = classifier(all_instances)
