@@ -103,7 +103,7 @@ class MIL_SB(nn.Module):
            sorted_indices = torch.argsort(A)
     
            remaining_indices = sorted_indices[self.k: -self.k]
-                   if len(remaining_indices) <= self.k_middle:
+           if len(remaining_indices) <= self.k_middle:
                 mid_indices = remaining_indices
            else:
                 mid_start = (len(remaining_indices) - self.k_middle) // 2
