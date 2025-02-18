@@ -24,7 +24,7 @@ class MIL_SB(nn.Module):
         self.relu = nn.ReLU()
         self.positional_ = nn.Linear(input_dim*2, input_dim)
         self.dropout = nn.Dropout(dropout_rate)
-        self.k_middle = self.k//2
+        self.k_middle = self.k
 
     def instance_evaluation(self, A, h, classifier):
         #print("Eval in")
