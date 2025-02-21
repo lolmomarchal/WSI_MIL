@@ -317,6 +317,7 @@ def get_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--positional_embed", action="store_true")
     parser.add_argument("--testing_csv", default=None)
+    parser.add_argument("--split_test", action = "store_false", type = bool,description = "flag if test is already pre split under a column called split")
     parser.add_argument("--training_output", default="/mnt/c/Users/loren/Masters/test")
     parser.add_argument("--epochs", default=200, type=int)
     parser.add_argument("--k", default=20, type=int)
@@ -364,7 +365,7 @@ def main():
                                                   label_column='target',
                                                   patient_id_column='patient_id',
                                                   test_size=0.15,
-                                                  random_state=42
+                                                  random_state=42, split = args.split_test
                                                   )
         # 2. get folds from train CV set
         folds = stratified_k_fold_split(
@@ -436,13 +437,13 @@ def main():
     train, test = stratified_train_test_split(data=label_data,
                                               label_column='target',
                                               patient_id_column='patient_id',
-                                              test_size=0.4,
-                                              random_state=42
+                                              test_size=0.2,
+                                              random_state=42, split = args.split_test
                                               )
-    val, test = stratified_train_test_split(data=test,
+    train, val = stratified_train_test_split(data=train,
                                             label_column='target',
                                             patient_id_column='patient_id',
-                                            test_size=0.5,
+                                            test_size=0.2,
                                             random_state=42
                                             )
     train_dataset = AttentionDataset(train.reset_index())
