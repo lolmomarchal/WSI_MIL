@@ -1,9 +1,14 @@
 import pandas as pd
 import numpy as np
 
-def stratified_train_test_split(data, label_column, patient_id_column, test_size=0.2, random_state=None):
+def stratified_train_test_split(data, label_column, patient_id_column, test_size=0.2, random_state=None, split = True):
     if random_state is not None:
         np.random.seed(random_state)
+    if not split:
+        mask = data.split.str.contains("test", case = False)
+        test = data[mask]
+        training = data[~mask]
+        return test, training
 
     # Get label distribution at sample level
     total_label_0 = (data[label_column] == 0).sum()
