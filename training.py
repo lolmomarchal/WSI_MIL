@@ -317,7 +317,7 @@ def get_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--positional_embed", action="store_true")
     parser.add_argument("--testing_csv", default=None)
-    parser.add_argument("--split_test", action = "store_false", type = bool,description = "flag if test is already pre split under a column called split")
+    parser.add_argument("--split_test", action = "store_false",help = "flag if test is already pre split under a column called split")
     parser.add_argument("--training_output", default="/mnt/c/Users/loren/Masters/test")
     parser.add_argument("--epochs", default=200, type=int)
     parser.add_argument("--k", default=20, type=int)
