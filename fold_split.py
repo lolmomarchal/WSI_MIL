@@ -6,8 +6,8 @@ def stratified_train_test_split(data, label_column, patient_id_column, test_size
         np.random.seed(random_state)
     if not split:
         mask = data.split.str.contains("test", case = False)
-        test = data[mask]
-        training = data[~mask]
+        test = data[~mask]
+        training = data[mask]
         return test, training
 
     # Get label distribution at sample level
