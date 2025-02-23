@@ -101,13 +101,7 @@ class MIL_SB(nn.Module):
             # joining all instances and their targets
             all_instances = torch.cat([top_k, bottom_k, mid_k], dim=0)
             all_targets = torch.cat([top_targets, bottom_targets, mid_targets], dim=0)
-            logits = classifier(all_instances)
-            probs = F.softmax(logits, dim=1)
-            # print(f"probs {probs.shape}")
-            all_targets_one_hot = torch.nn.functional.one_hot(all_targets, num_classes=2).float()
-            # print(f"all_targets_one_hot {all_targets_one_hot.shape}")
-            instance_loss = self.instance_loss(probs, all_targets_one_hot)
-            # print(f"instance_loss {instance_loss}")
+    
 
         elif self.k_selection == "middle":
             # this one doesn't shuffle, instead it chooses from directly in the middle
