@@ -52,8 +52,8 @@ class MIL_SB(nn.Module):
         # print(f"bottom_k {top_k.shape}")
 
 
-        top_targets = torch.full((self.k,), 1, device=device).long()
-        bottom_targets = torch.full((self.k,), 0, device=device).long()
+        top_targets = torch.full((self.k,), 1, device=device)
+        bottom_targets = torch.full((self.k,), 0, device=device)
 
         # print(f"top_targets {top_targets.shape}")
         # print(f"bottom_targets {bottom_targets.shape}")
@@ -88,7 +88,7 @@ class MIL_SB(nn.Module):
 
             # getting the middle targets at the selected indexes
             mid_k = torch.index_select(h, dim=0, index=selected_indices)
-            mid_targets = torch.full((mid_k.size(0),), 0.5, device=device).long()
+            mid_targets = torch.full((mid_k.size(0),), 0.5, device=device)
             # print(f"mid_k {mid_k.shape}")
             # print(f"mid_targets {mid_targets.shape}")
 
@@ -101,8 +101,8 @@ class MIL_SB(nn.Module):
             # this one doesn't shuffle, instead it chooses from directly in the middle
 
            sorted_indices = torch.argsort(A)
-    
-           remaining_indices = sorted_indices[self.k: -self.k]
+
+           remaining_indices = sorted_indices[self.k+1: -self.k]
            if len(remaining_indices) <= self.k_middle:
                 mid_indices = remaining_indices
            else:
@@ -110,10 +110,29 @@ class MIL_SB(nn.Module):
                 mid_indices = remaining_indices[mid_start: mid_start + self.k_middle]
         
            mid_k = torch.index_select(h, dim=0, index=mid_indices)
-           mid_targets = torch.full((mid_k.size(0),), 0.5, device=device).long()
+           mid_targets = torch.full((mid_k.size(0),), 0.5, device=device)
         
            all_instances = torch.cat([top_k, bottom_k, mid_k], dim=0)
            all_targets = torch.cat([top_targets, bottom_targets, mid_targets], dim=0)
+        elif self.k_selection == "middle_percentile":
+            sorted_indices = torch.argsort(A)
+            remaining_indices = sorted_indices[self.k+1: -self.k]
+            mid_start = (len(remaining_indices))// 2
+            if len(remaining_indices)<self.k_middle:
+                mid_indices_75 = remaining_indices[mid_start:]
+                mid_indices_25 = remaining_indices[0:mid_start]
+            else:
+                mid_indices_25 = remaining_indices[mid_start-self.k_middle//2:mid_start]
+                mid_indices_75 = remaining_indices[mid_start:mid_start+self.k_middle//2]
+                
+            mid_k_25 = torch.index_select(h, dim = 0, index =mid_indices_25)
+            mid_k_75 = torch.index_select(h, dim = 0, index = mid_indices_75)
+            mid_targets_25 = torch.full((mid_k_25.size(0),), 0.25, device=device)
+            mid_targets_75 = torch.full((mid_k_75.size(0),), 0.75, device=device)
+            all_instances = torch.cat([top_k, bottom_k, mid_k_25, mid_k_75], dim=0)
+            all_targets = torch.cat([top_targets, bottom_targets, mid_targets_25, mid_targets_75], dim=0)
+            
+            
 
 
         logits = classifier(all_instances)
