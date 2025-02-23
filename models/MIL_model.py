@@ -64,8 +64,14 @@ class MIL_SB(nn.Module):
             all_instances = torch.cat([top_k, bottom_k], dim=0)
             # print(f"all_targets {all_targets.shape}")
             # print(f"all_instances {all_instances.shape}")
+            logits = classifier(all_instances)
+            probs = F.softmax(logits, dim=1)
+            # print(f"probs {probs.shape}")
+            all_targets_one_hot = torch.nn.functional.one_hot(all_targets, num_classes=2).float()
+            # print(f"all_targets_one_hot {all_targets_one_hot.shape}")
+            instance_loss = self.instance_loss(probs, all_targets_one_hot)
+            return instance_loss, torch.topk(logits, 1, dim=1)[1].squeeze(1), all_targets
 
-        # gets top, middle, and bottom targets (adding noise from the "middle portion")
         elif self.k_selection == "shuffle":
 
             excluded_indices = torch.cat([top_k_indices, bottom_k_indices])
@@ -95,8 +101,14 @@ class MIL_SB(nn.Module):
             # joining all instances and their targets
             all_instances = torch.cat([top_k, bottom_k, mid_k], dim=0)
             all_targets = torch.cat([top_targets, bottom_targets, mid_targets], dim=0)
-            # print(f"all_instances {all_instances.shape}")
-            # print(f"all_targets {all_targets.shape}")
+            logits = classifier(all_instances)
+            probs = F.softmax(logits, dim=1)
+            # print(f"probs {probs.shape}")
+            all_targets_one_hot = torch.nn.functional.one_hot(all_targets, num_classes=2).float()
+            # print(f"all_targets_one_hot {all_targets_one_hot.shape}")
+            instance_loss = self.instance_loss(probs, all_targets_one_hot)
+            # print(f"instance_loss {instance_loss}")
+
         elif self.k_selection == "middle":
             # this one doesn't shuffle, instead it chooses from directly in the middle
 
@@ -131,18 +143,24 @@ class MIL_SB(nn.Module):
             mid_targets_75 = torch.full((mid_k_75.size(0),), 0.75, device=device)
             all_instances = torch.cat([top_k, bottom_k, mid_k_25, mid_k_75], dim=0)
             all_targets = torch.cat([top_targets, bottom_targets, mid_targets_25, mid_targets_75], dim=0)
-            
-            
-
 
         logits = classifier(all_instances)
+        # print(f"logits shape {logits.shape}")
+
         probs = F.softmax(logits, dim=1)
-        # print(f"probs {probs.shape}")
-        all_targets_one_hot = torch.nn.functional.one_hot(all_targets, num_classes=2).float()
-        # print(f"all_targets_one_hot {all_targets_one_hot.shape}")
-        instance_loss = self.instance_loss(probs, all_targets_one_hot)
-        # print(f"instance_loss {instance_loss}")
-        return instance_loss, torch.topk(logits, 1, dim=1)[1].squeeze(1), all_targets
+        # print(f"probs shape {probs.shape}")
+
+        all_targets_probs = all_targets.float()
+        # print(f"all_targets_one_hot {all_targets_probs.shape}")
+
+        # Extracting second column correctly
+        # print(f"probs[:,1] shape: {probs[:,1].shape}")
+
+        all_targets_probs = all_targets.float()
+        all_targets_probs = torch.stack([1 - all_targets_probs, all_targets_probs], dim=1)
+        loss_output = self.instance_loss(probs, all_targets_probs)
+        # print(f"instance_loss output: {loss_output}")
+        return loss_output, torch.topk(logits, 1, dim=1)[1].squeeze(1), all_targets
 
     def instance_evaluation_out(self, A, h,  classifier):
         device = h.device
