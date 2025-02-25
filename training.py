@@ -166,10 +166,8 @@ class Trainer:
     
                 self.optimizer.zero_grad()
                 if  self.positional_embed:
-                    print("NAH")
                     logits, Y_prob, _, A_raw, results_dict, h = self.model(bags, pos = positional,label=labels, instance_eval=True)
                 else:
-                     print("YAH")
                      logits, Y_prob, _, A_raw, results_dict, h = self.model(bags, pos = None,label=labels, instance_eval=True)
 
                     
@@ -187,6 +185,7 @@ class Trainer:
                 running_loss += loss.item()
                 running_correct += (logits.argmax(dim=1) == labels).sum().item()
                 total += labels.size(0)
+                print("passed bag eval") 
     
                 # if we want to save attention + get instance eval
                 if epoch % self.batch_save == 0:
@@ -243,21 +242,26 @@ class Trainer:
     def _instance_eval(self, bags, positional):
 
         instances = instance_dataloader(bags)
-        instance_pos = instance_dataloader(positional)
         instance_labels = []
         instance_probs = []
+        
         self.model.eval()
-        with torch.no_grad():
-            for instance, position in zip(instances, instance_pos):
-                if self.positional_embed:
-                    logits_inst, Y_prob_inst, Y_hat_inst, A_raw_inst, dict, h = self.model(instance.unsqueeze(1),pos = pos.unsqueeze(1),
-                                                                                       instance_eval=False)    
-                else:
-                    values = instance.unsqueeze(1)
-                logits_inst, Y_prob_inst, Y_hat_inst, A_raw_inst, dict, h = self.model( instance.unsqueeze(1), pos = None, 
-                                                                                       instance_eval=False)
-                instance_labels.append(Y_hat_inst.item())
-                instance_probs.append(Y_prob_inst[:, 1].item())
+        if self.positional_embed:   
+            instance_pos = instance_dataloader(positional)
+            with torch.no_grad():
+                for instance, position in zip(instances, instance_pos):
+                    if self.positional_embed:
+                        logits_inst, Y_prob_inst, Y_hat_inst, A_raw_inst, dict, h = self.model(instance.unsqueeze(1),pos = pos.unsqueeze(1),
+                                                                                           instance_eval=False)   
+                    instance_labels.append(Y_hat_inst.item())
+                    instance_probs.append(Y_prob_inst[:, 1].item())
+        else:
+            with torch.no_grad():
+                for instance in instances:
+                    logits_inst, Y_prob_inst, Y_hat_inst, A_raw_inst, dict, h = self.model( instance.unsqueeze(1), pos = None, 
+                                                                                  instance_eval=False)
+                    instance_labels.append(Y_hat_inst.item())
+                    instance_probs.append(Y_prob_inst[:, 1].item())
         return instance_labels, instance_probs
 
     def _save_attention(self, epoch, A_raw, bags, positional, patient_id, h, phase="train"):
