@@ -19,8 +19,8 @@ class MIL_SB(nn.Module):
         self.attention_net = GatedAttentionModel(input_dim=input_dim, hidden_dim1=hidden_dim1, hidden_dim2=hidden_dim2, dropout_rate=dropout_rate, classes=1)
         self.classifiers = nn.Linear(hidden_dim1, classes)
         self.instance_classifiers = nn.ModuleList([nn.Linear(hidden_dim1, 2) for _ in range(classes)])
-        self.alpha = nn.Parameter(torch.tensor(0.5))
-        self.beta = nn.Parameter(torch.tensor(0.5))
+        # self.alpha = nn.Parameter(torch.tensor(0.5))
+        # self.beta = nn.Parameter(torch.tensor(0.5))
         self.relu = nn.ReLU()
         self.positional_ = nn.Linear(input_dim*2, input_dim)
         self.dropout = nn.Dropout(dropout_rate)
@@ -192,6 +192,7 @@ class MIL_SB(nn.Module):
 
         # print("-------")
         # print("new batch")
+        print(pos)
         if pos is not None:
             h = torch.cat([h,pos], dim =-1).float()
             h = self.positional_(h)
