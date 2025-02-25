@@ -82,7 +82,7 @@ class AttentionDataset(data.Dataset):
                     positional_embed = hdf5_file['positional_embeddings'][:]
                     positional_embed = torch.from_numpy(positional_embed)
                 else:
-                    positional_embed = None 
+                    positional_embed = torch.empty(2048)
                     
 
             return features, positional_embed, label, x, y, tile_paths, scales, original_size, patient_id
