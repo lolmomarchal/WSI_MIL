@@ -50,42 +50,38 @@ def stratified_k_fold_split(data, label_column, patient_id_column, cancer_subtyp
     if random_state is not None:
         np.random.seed(random_state)
     
-    folds = []
-    
+    folds = [[] for _ in range(n_splits)]  
+
     for subtype, subtype_data in data.groupby(cancer_subtype_column):
+        # Group by patient and label counts
         grouped = subtype_data.groupby(patient_id_column)[label_column].value_counts().unstack(fill_value=0).reset_index()
+
+        # Ensure label columns exist
+        if 0 not in grouped.columns:
+            grouped[0] = 0
+        if 1 not in grouped.columns:
+            grouped[1] = 0
+
         grouped.columns = [patient_id_column, 'label_0_count', 'label_1_count']
+        
         grouped = grouped.sample(frac=1, random_state=random_state)
-        
-        patient_ids = grouped[patient_id_column].tolist()
-        total_samples = len(subtype_data)
-        
-        target_fold_size = int(total_samples / n_splits)
-        target_fold_label_0 = int(target_fold_size * (grouped['label_0_count'].sum() / total_samples))
-        target_fold_label_1 = int(target_fold_size * (grouped['label_1_count'].sum() / total_samples))
-        
-        subtype_folds = []
-        
-        for _ in range(n_splits):
-            fold_patients = []
-            fold_label_0_count = 0
-            fold_label_1_count = 0
-            
-            for pid in patient_ids:
-                patient_data = grouped[grouped[patient_id_column] == pid]
-                if (fold_label_0_count < target_fold_label_0) or (fold_label_1_count < target_fold_label_1):
-                    fold_patients.append(pid)
-                    fold_label_0_count += patient_data['label_0_count'].values[0]
-                    fold_label_1_count += patient_data['label_1_count'].values[0]
-                else:
-                    break
-            
-            patient_ids = [pid for pid in patient_ids if pid not in fold_patients]
-            val_data = subtype_data[subtype_data[patient_id_column].isin(fold_patients)]
-            train_data = subtype_data[~subtype_data[patient_id_column].isin(fold_patients)]
-            
-            subtype_folds.append((train_data, val_data))
-        
-        folds.extend(subtype_folds)
-    
-    return folds
+
+        patients_label_0 = grouped[grouped["label_0_count"] > 0][patient_id_column].tolist()
+        patients_label_1 = grouped[grouped["label_1_count"] > 0][patient_id_column].tolist()
+
+        np.random.shuffle(patients_label_0)
+        np.random.shuffle(patients_label_1)
+
+        for i, pid in enumerate(patients_label_0):
+            folds[i % n_splits].append(pid)
+        for i, pid in enumerate(patients_label_1):
+            folds[i % n_splits].append(pid)
+
+    fold_splits = []
+    for i in range(n_splits):
+        val_patients = set(folds[i])
+        val_data = data[data[patient_id_column].isin(val_patients)]
+        train_data = data[~data[patient_id_column].isin(val_patients)]
+        fold_splits.append((train_data, val_data))
+
+    return fold_splits
