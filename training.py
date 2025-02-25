@@ -184,9 +184,7 @@ class Trainer:
                 self.optimizer.step()
                 running_loss += loss.item()
                 running_correct += (logits.argmax(dim=1) == labels).sum().item()
-                total += labels.size(0)
-                print("passed bag eval") 
-    
+                total += labels.size(0)    
                 # if we want to save attention + get instance eval
                 if epoch % self.batch_save == 0:
                     self._save_attention(epoch, A_raw, bags, positional, patient_id, h)
