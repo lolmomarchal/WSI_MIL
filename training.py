@@ -406,6 +406,7 @@ def main():
             print(f"weights {weights}")
 
             save_path = os.path.join(args.training_output, f"fold_{i + 1}")
+            os.makedirs(save_path, exist_ok = True)
             # save test-train-val split
             train_data.loc[:,"split"] = "train"
             val_data.loc[:,"split"] = "val"
