@@ -160,7 +160,7 @@ class Trainer:
                 continue
             try:
                 bags, positional, labels = bags.to(self.device), positional.to(self.device), labels.to(self.device)
-                print(positional.shape())
+                print(positional.shape)
                 self.model.train()
     
                 if labels.dtype != torch.long:
