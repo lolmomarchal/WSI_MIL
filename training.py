@@ -167,8 +167,10 @@ class Trainer:
     
                 self.optimizer.zero_grad()
                 if  self.positional_embed:
+                    print("NAH")
                     logits, Y_prob, _, A_raw, results_dict, h = self.model(bags, pos = positional,label=labels, instance_eval=True)
                 else:
+                    print("YAH")
                      logits, Y_prob, _, A_raw, results_dict, h = self.model(bags, pos = None,label=labels, instance_eval=True)
 
                     
@@ -208,7 +210,7 @@ class Trainer:
                 bags, positional, labels = bags.to(self.device), positional.to(self.device), labels.to(self.device)
                 with torch.no_grad():
                     self.model.eval()
-                    if positional is not None:
+                    if self.positional_embed:
                         logits, Y_prob, _, A_raw, results_dict, h = self.model(bags, pos = positional ,label=labels, instance_eval=True)
                     else:
                          logits, Y_prob, _, A_raw, results_dict, h = self.model(bags, pos = None ,label=labels, instance_eval=True)
