@@ -392,7 +392,10 @@ def main():
             model = MIL_SB(instance_loss, input_dim=args.input_dim, hidden_dim1=args.hidden_dim1,
                            hidden_dim2=args.hidden_dim2, dropout_rate=args.dropout,
                            k=args.k, k_selection=args.tile_selection)
+          
+            
             # general criterion
+
 
             print(
                 f" number of positive samples  {len(train_data[train_data['target'] == 1])} number of negative samples {len(train_data[train_data['target'] == 0])}")
@@ -403,6 +406,12 @@ def main():
             print(f"weights {weights}")
 
             save_path = os.path.join(args.training_output, f"fold_{i + 1}")
+            # save test-train-val split
+            train_data.loc[:,"split"] = "train"
+            val_data.loc[:,"split"] = "val"
+            test.loc[:,"split"] = "test"
+            df_split = pd.concat([train_data, val_data, test])
+            df_split.to_csv(os.path.join(save_path,"fold_splits.csv"), index = False)
             trainer = Trainer(criterion, args.batch_save, model, train_loader, val_loader, save_path, train_dataset,
                               val_dataset, num_epochs=args.epochs,
                               patience=args.patience, positional_embed=args.positional_embed)
