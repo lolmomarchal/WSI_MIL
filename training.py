@@ -167,7 +167,7 @@ class Trainer:
                     labels = labels.long()
     
                 self.optimizer.zero_grad()
-                if positional is not None:
+                if  self.positional_embed:
                     logits, Y_prob, _, A_raw, results_dict, h = self.model(bags, pos = positional,label=labels, instance_eval=True)
                 else:
                      logits, Y_prob, _, A_raw, results_dict, h = self.model(bags, pos = None,label=labels, instance_eval=True)
