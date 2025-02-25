@@ -170,7 +170,7 @@ class Trainer:
                     print("NAH")
                     logits, Y_prob, _, A_raw, results_dict, h = self.model(bags, pos = positional,label=labels, instance_eval=True)
                 else:
-                    print("YAH")
+                     print("YAH")
                      logits, Y_prob, _, A_raw, results_dict, h = self.model(bags, pos = None,label=labels, instance_eval=True)
 
                     
