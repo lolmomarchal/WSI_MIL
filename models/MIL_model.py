@@ -192,7 +192,6 @@ class MIL_SB(nn.Module):
 
         # print("-------")
         # print("new batch")
-        print(pos)
         if pos is not None:
             h = torch.cat([h,pos], dim =-1).float()
             h = self.positional_(h)
