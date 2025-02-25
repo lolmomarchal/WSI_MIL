@@ -78,9 +78,11 @@ class AttentionDataset(data.Dataset):
                     positional_embed = torch.from_numpy(np.array([
                         positional_embeddings_sin_cos(x_coord, y_coord) for x_coord, y_coord in zip(x, y)
                     ]))
-                else:
+                elif self.type_embed == "local":
                     positional_embed = hdf5_file['positional_embeddings'][:]
                     positional_embed = torch.from_numpy(positional_embed)
+                else:
+                    positional_embed = None 
                     
 
             return features, positional_embed, label, x, y, tile_paths, scales, original_size, patient_id
