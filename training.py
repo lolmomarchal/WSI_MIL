@@ -153,7 +153,6 @@ class Trainer:
     def _train_epoch(self, epoch):
         running_loss, running_correct, total, inst_count, train_inst_loss = 0.0, 0, 0, 0, 0
         
-
         for bags, positional, labels, x, y, tile_paths, scales, original_size, patient_id in tqdm(self.train_loader,
                                                                                                   desc=f"Epoch {epoch + 1} [Train]"):
             if patient_id[0] == "error":
@@ -251,10 +250,11 @@ class Trainer:
         with torch.no_grad():
             for instance, position in zip(instances, instance_pos):
                 if self.positional_embed:
-                    values = instance.unsqueeze(1) + position.unsqueeze(1)
+                    logits_inst, Y_prob_inst, Y_hat_inst, A_raw_inst, dict, h = self.model(instance.unsqueeze(1),pos = pos.unsqueeze(1),
+                                                                                       instance_eval=False)    
                 else:
                     values = instance.unsqueeze(1)
-                logits_inst, Y_prob_inst, Y_hat_inst, A_raw_inst, dict, h = self.model(values,
+                logits_inst, Y_prob_inst, Y_hat_inst, A_raw_inst, dict, h = self.model( instance.unsqueeze(1), pos = None, 
                                                                                        instance_eval=False)
                 instance_labels.append(Y_hat_inst.item())
                 instance_probs.append(Y_prob_inst[:, 1].item())
