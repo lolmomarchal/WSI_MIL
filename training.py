@@ -393,8 +393,10 @@ def main():
             # get the loaders
             train_dataset = AttentionDataset(train_data.reset_index())
             val_dataset = AttentionDataset(val_data.reset_index())
-            train_loader = DataLoader(train_dataset, batch_size=1, shuffle=True)
-            val_loader = DataLoader(val_dataset, batch_size=1)
+            train_loader = DataLoader(train_dataset, batch_size=1, shuffle=True, 
+                          pin_memory=True, num_workers=os.cpu_count()-2)
+            val_loader = DataLoader(val_dataset, batch_size=1, shuffle=False, 
+                        pin_memory=True, num_workers=os.cpu_count()-2)
             # initiate model
             instance_loss = cross_entropy_with_probs
             model = MIL_SB(instance_loss, input_dim=args.input_dim, hidden_dim1=args.hidden_dim1,
