@@ -1,4 +1,4 @@
-# python libraries
+_# python libraries
 import pandas as pd
 import numpy as np
 import os
@@ -21,6 +21,7 @@ from models.AttentionModel import GatedAttentionModel
 from fold_split import stratified_k_fold_split, stratified_train_test_split
 
 torch.backends.cuda.matmul.allow_tf32 = True
+torch.backends.cudnn.benchmark = True
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
@@ -248,19 +249,22 @@ class Trainer:
             instance_pos = instance_dataloader(positional)
             with torch.no_grad():
                 for instance, position in zip(instances, instance_pos):
+                    instance = instance.unsqueeze(1).to(self.device, non_blocking=True)
+                    position = position.unsqueeze(1).to(self.device, non_blocking=True)
+        
+                    logits_inst, Y_prob_inst, Y_hat_inst, A_raw_inst, dict, h = self.model(instance, pos=position, instance_eval=False)
                     
-                    if self.positional_embed:
-                        logits_inst, Y_prob_inst, Y_hat_inst, A_raw_inst, dict, h = self.model(instance.unsqueeze(1).to(self.device,  non_blocking=True),pos = pos.unsqueeze(1).to(self.device,  non_blocking=True),
-                                                                                           instance_eval=False)  
-                    instance_labels.append(Y_hat_inst.cpu().item())
-                    instance_probs.append(Y_prob_inst[:, 1].cpu().item())
+                    instance_labels.append(Y_hat_inst.cpu().item() if isinstance(Y_hat_inst, torch.Tensor) else Y_hat_inst)
+                    instance_probs.append(Y_prob_inst[:, 1].cpu().item() if isinstance(Y_prob_inst, torch.Tensor) else Y_prob_inst[:, 1])
         else:
             with torch.no_grad():
                 for instance in instances:
-                    logits_inst, Y_prob_inst, Y_hat_inst, A_raw_inst, dict, h = self.model( instance.unsqueeze(1).to(self.device,  non_blocking=True), pos = None, 
-                                                                                  instance_eval=False)
-                    instance_labels.append(Y_hat_inst.item().cpu().item())
-                    instance_probs.append(Y_prob_inst[:, 1].cpu().item())
+                    instance = instance.unsqueeze(1).to(self.device, non_blocking=True)
+        
+                    logits_inst, Y_prob_inst, Y_hat_inst, A_raw_inst, dict, h = self.model(instance, pos=None, instance_eval=False)
+                    
+                    instance_labels.append(Y_hat_inst.cpu().item() if isinstance(Y_hat_inst, torch.Tensor) else Y_hat_inst)
+                    instance_probs.append(Y_prob_inst[:, 1].cpu().item() if isinstance(Y_prob_inst, torch.Tensor) else Y_prob_inst[:, 1])
         return instance_labels, instance_probs
 
     def _save_attention(self, epoch, A_raw, bags, positional, patient_id, h, phase="train"):
