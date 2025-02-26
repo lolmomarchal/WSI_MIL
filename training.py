@@ -158,7 +158,7 @@ class Trainer:
             if patient_id[0] == "error":
                 continue
             try:
-                bags, positional, labels = bags.to(self.device), positional.to(self.device), labels.to(self.device)
+                bags, positional, labels = bags.to(self.device,  non_blocking=True), positional.to(self.device,  non_blocking=True), labels.to(self.device,  non_blocking=True)
                 self.model.train()
     
                 if labels.dtype != torch.long:
@@ -203,7 +203,7 @@ class Trainer:
             if patient_id[0] == "error":
                 continue
             try:
-                bags, positional, labels = bags.to(self.device), positional.to(self.device), labels.to(self.device)
+                bags, positional, labels = bags.to(self.device,  non_blocking=True), positional.to(self.device,  non_blocking=True), labels.to(self.device,  non_blocking=True)
                 with torch.no_grad():
                     self.model.eval()
                     if self.positional_embed:
@@ -248,18 +248,19 @@ class Trainer:
             instance_pos = instance_dataloader(positional)
             with torch.no_grad():
                 for instance, position in zip(instances, instance_pos):
+                    
                     if self.positional_embed:
-                        logits_inst, Y_prob_inst, Y_hat_inst, A_raw_inst, dict, h = self.model(instance.unsqueeze(1),pos = pos.unsqueeze(1),
-                                                                                           instance_eval=False)   
-                    instance_labels.append(Y_hat_inst.item())
-                    instance_probs.append(Y_prob_inst[:, 1].item())
+                        logits_inst, Y_prob_inst, Y_hat_inst, A_raw_inst, dict, h = self.model(instance.unsqueeze(1).to(self.device,  non_blocking=True),pos = pos.unsqueeze(1).to(self.device,  non_blocking=True),
+                                                                                           instance_eval=False)  
+                    instance_labels.append(Y_hat_inst.cpu().item())
+                    instance_probs.append(Y_prob_inst[:, 1].cpu().item())
         else:
             with torch.no_grad():
                 for instance in instances:
-                    logits_inst, Y_prob_inst, Y_hat_inst, A_raw_inst, dict, h = self.model( instance.unsqueeze(1), pos = None, 
+                    logits_inst, Y_prob_inst, Y_hat_inst, A_raw_inst, dict, h = self.model( instance.unsqueeze(1).to(self.device,  non_blocking=True), pos = None, 
                                                                                   instance_eval=False)
-                    instance_labels.append(Y_hat_inst.item())
-                    instance_probs.append(Y_prob_inst[:, 1].item())
+                    instance_labels.append(Y_hat_inst.item().cpu().item())
+                    instance_probs.append(Y_prob_inst[:, 1].cpu().item())
         return instance_labels, instance_probs
 
     def _save_attention(self, epoch, A_raw, bags, positional, patient_id, h, phase="train"):
