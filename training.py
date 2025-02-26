@@ -293,18 +293,21 @@ class Trainer:
             file.create_dataset(f'cluster_epoch_{epoch}', data=h.detach().cpu().numpy())
 
 
-def evaluate(model, dataloader, instance_eval=False):
+def evaluate(model, dataloader, instance_eval=False, position = False):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model.to(device)
     model.eval()
 
     all_preds, all_probs, all_labels = [], [], []
 
-    with torch.no_grad():
+    with torch.inference_mode():
         for bags, positional, labels, _, _, _, _, _, _ in dataloader:
             try:
                 bags, labels, positional = bags.to(device), labels.to(device), positional.to(device)
-                logits, Y_prob, Y_hat, _, _, _ =  model(bags, pos = positional ,label=labels, instance_eval=instance_eval)
+                if position:
+                    logits, Y_prob, Y_hat, _, _, _ =  model(bags, pos = positional ,label=labels, instance_eval=instance_eval)
+                else: 
+                    logits, Y_prob, Y_hat, _, _, _ =  model(bags, pos = None ,label=labels, instance_eval=instance_eval)
                 all_probs.extend(Y_prob[:, 1].cpu().numpy())
                 all_preds.extend(Y_hat.cpu().numpy().flatten())
                 all_labels.extend(labels.cpu().numpy().flatten())
@@ -434,9 +437,9 @@ def main():
 
             # now eval
             test_loader = DataLoader(AttentionDataset(test.reset_index()), batch_size=1)
-            results = evaluate(model, test_loader, instance_eval=False)
+            results = evaluate(model, test_loader, instance_eval=False, position = args.positional_embed)
             fold_metrics_testing.append(results)
-            results = evaluate(model, val_loader, instance_eval=False)
+            results = evaluate(model, val_loader, instance_eval=False, position =args.positional_embed)
             fold_metrics_val.append(results)
             write_eval_crossval([fold_metrics_testing[i], fold_metrics_val[i]],
                                 os.path.join(save_path, "test-val_eval.csv"), ["Testing", "Validation", "Average"])
@@ -491,8 +494,8 @@ def main():
     model.load_state_dict(torch.load(best_weights, weights_only=True))
     # now eval
     test_loader = DataLoader(AttentionDataset(test.reset_index()), batch_size=1)
-    results_test = evaluate(model, test_loader, instance_eval=False)
-    results_val = evaluate(model, val_loader, instance_eval=False)
+    results_test = evaluate(model, test_loader, instance_eval=False, position = args.positional_embed)
+    results_val = evaluate(model, val_loader, instance_eval=False, position = args.positional_embed)
 
     write_eval_crossval([results_test, results_val], os.path.join(save_path, "test-val_eval.csv"),
                         ["Testing", "Validation", "Average"])
