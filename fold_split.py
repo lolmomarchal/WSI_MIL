@@ -2,7 +2,6 @@ import numpy as np
 import pandas as pd
 
 def stratified_train_test_split(data, label_column, patient_id_column, cancer_subtype_column=None, test_size=0.2, random_state=None, split=True):
-tuple: (train_data, test_data)
 
     if random_state is not None:
         np.random.seed(random_state)
@@ -44,12 +43,6 @@ tuple: (train_data, test_data)
     train_data = data[~data[patient_id_column].isin(selected_test_patients)]
 
     return train_data, test_data
-import numpy as np
-import pandas as pd
-from sklearn.model_selection import StratifiedKFold
-
-import numpy as np
-import pandas as pd
 from sklearn.model_selection import StratifiedKFold
 
 def stratified_k_fold_split(data, label_column, patient_id_column, cancer_subtype_column=None, n_splits=5, random_state=None):
