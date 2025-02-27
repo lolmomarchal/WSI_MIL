@@ -25,6 +25,12 @@ def stratified_train_test_split(data, label_column, patient_id_column, cancer_su
         
         grouped = subtype_data.groupby(patient_id_column)[label_column].value_counts().unstack(fill_value=0).reset_index()
         grouped = grouped.rename(columns={0: 'label_0_count', 1: 'label_1_count'})
+        
+        if 'label_0_count' not in grouped.columns:
+            grouped['label_0_count'] = 0
+        if 'label_1_count' not in grouped.columns:
+            grouped['label_1_count'] = 0
+        
         grouped = grouped.sample(frac=1, random_state=random_state)
         
         test_label_0_count = 0
@@ -54,6 +60,11 @@ def stratified_k_fold_split(data, label_column, patient_id_column, cancer_subtyp
     for _, subtype_data in data.groupby(group_columns):
         grouped = subtype_data.groupby(patient_id_column)[label_column].value_counts().unstack(fill_value=0).reset_index()
         grouped = grouped.rename(columns={0: 'label_0_count', 1: 'label_1_count'})
+        
+        if 'label_0_count' not in grouped.columns:
+            grouped['label_0_count'] = 0
+        if 'label_1_count' not in grouped.columns:
+            grouped['label_1_count'] = 0
         
         grouped = grouped.sample(frac=1, random_state=random_state)
         
