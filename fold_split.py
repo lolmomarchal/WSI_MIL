@@ -2,88 +2,77 @@ import numpy as np
 import pandas as pd
 
 def stratified_train_test_split(data, label_column, patient_id_column, cancer_subtype_column=None, test_size=0.2, random_state=None, split=True):
+tuple: (train_data, test_data)
+
     if random_state is not None:
         np.random.seed(random_state)
+
+    # If using pre-existing split info
     if not split:
-        mask = data.split.str.contains("test", case=False)
-        test = data[~mask]
-        training = data[mask]
-        return test, training
-    
-    test_patients = []
-    group_columns = [cancer_subtype_column] if cancer_subtype_column and cancer_subtype_column in data.columns else []
-    group_columns.append(patient_id_column)
-    
-    for _, subtype_data in data.groupby(group_columns):
-        total_label_0 = (subtype_data[label_column] == 0).sum()
-        total_label_1 = (subtype_data[label_column] == 1).sum()
-        total_samples = len(subtype_data)
-        
-        target_test_size = int(total_samples * test_size)
-        target_test_label_0 = max(1, int(target_test_size * (total_label_0 / total_samples))) if total_label_0 > 0 else 0
-        target_test_label_1 = max(1, int(target_test_size * (total_label_1 / total_samples))) if total_label_1 > 0 else 0
-        
-        grouped = subtype_data.groupby(patient_id_column)[label_column].value_counts().unstack(fill_value=0).reset_index()
-        grouped = grouped.rename(columns={0: 'label_0_count', 1: 'label_1_count'})
-        
-        if 'label_0_count' not in grouped.columns:
-            grouped['label_0_count'] = 0
-        if 'label_1_count' not in grouped.columns:
-            grouped['label_1_count'] = 0
-        
-        grouped = grouped.sample(frac=1, random_state=random_state)
-        
-        test_label_0_count = 0
-        test_label_1_count = 0
-        
-        for _, row in grouped.iterrows():
-            if test_label_0_count < target_test_label_0 or test_label_1_count < target_test_label_1:
-                test_patients.append(row[patient_id_column])
-                test_label_0_count += row['label_0_count']
-                test_label_1_count += row['label_1_count']
-            if test_label_0_count >= target_test_label_0 and test_label_1_count >= target_test_label_1:
-                break
-    
-    test_data = data[data[patient_id_column].isin(test_patients)]
-    train_data = data[~data[patient_id_column].isin(test_patients)]
-    
+        mask = data['split'].str.contains("test", case=False, na=False)
+        test = data[mask]
+        train = data[~mask]
+        return train, test
+
+    test_patients = set()
+    total_patients = data[patient_id_column].nunique()
+    target_test_size = max(1, int(total_patients * test_size))  
+
+    group_columns = [label_column] if cancer_subtype_column is None else [cancer_subtype_column, label_column]
+
+    patient_groups = data.groupby([patient_id_column, label_column]).size().reset_index(name='count')
+
+    grouped_data = patient_groups.groupby(group_columns)
+
+    all_patients = data[patient_id_column].unique()
+    np.random.shuffle(all_patients)
+
+    selected_test_patients = set()
+
+    for _, group in grouped_data:
+        unique_patients = group[patient_id_column].unique()
+        np.random.shuffle(unique_patients)  
+
+        group_test_size = max(1, int(len(unique_patients) * test_size))
+        selected_test_patients.update(unique_patients[:group_test_size])
+
+        if len(selected_test_patients) >= target_test_size:
+            break
+
+    # Create train and test splits
+    test_data = data[data[patient_id_column].isin(selected_test_patients)]
+    train_data = data[~data[patient_id_column].isin(selected_test_patients)]
+
     return train_data, test_data
+import numpy as np
+import pandas as pd
+from sklearn.model_selection import StratifiedKFold
+
+import numpy as np
+import pandas as pd
+from sklearn.model_selection import StratifiedKFold
 
 def stratified_k_fold_split(data, label_column, patient_id_column, cancer_subtype_column=None, n_splits=5, random_state=None):
+
     if random_state is not None:
         np.random.seed(random_state)
-    
-    folds = [[] for _ in range(n_splits)]  
-    group_columns = [cancer_subtype_column] if cancer_subtype_column and cancer_subtype_column in data.columns else []
-    group_columns.append(patient_id_column)
-    
-    for _, subtype_data in data.groupby(group_columns):
-        grouped = subtype_data.groupby(patient_id_column)[label_column].value_counts().unstack(fill_value=0).reset_index()
-        grouped = grouped.rename(columns={0: 'label_0_count', 1: 'label_1_count'})
-        
-        if 'label_0_count' not in grouped.columns:
-            grouped['label_0_count'] = 0
-        if 'label_1_count' not in grouped.columns:
-            grouped['label_1_count'] = 0
-        
-        grouped = grouped.sample(frac=1, random_state=random_state)
-        
-        patients_label_0 = grouped[grouped['label_0_count'] > 0][patient_id_column].tolist()
-        patients_label_1 = grouped[grouped['label_1_count'] > 0][patient_id_column].tolist()
-        
-        np.random.shuffle(patients_label_0)
-        np.random.shuffle(patients_label_1)
-        
-        for i, pid in enumerate(patients_label_0):
-            folds[i % n_splits].append(pid)
-        for i, pid in enumerate(patients_label_1):
-            folds[i % n_splits].append(pid)
+
+    patient_labels = data.groupby(patient_id_column)[label_column].agg(lambda x: x.value_counts().idxmax()).reset_index()
+
+    skf = StratifiedKFold(n_splits=n_splits, shuffle=True, random_state=random_state)
     
     fold_splits = []
-    for i in range(n_splits):
-        val_patients = set(folds[i])
-        val_data = data[data[patient_id_column].isin(val_patients)]
-        train_data = data[~data[patient_id_column].isin(val_patients)]
-        fold_splits.append((train_data, val_data))
     
+    for fold_idx, (train_idx, val_idx) in enumerate(skf.split(patient_labels[patient_id_column], patient_labels[label_column])):
+        train_patients = patient_labels.iloc[train_idx][patient_id_column].values
+        val_patients = patient_labels.iloc[val_idx][patient_id_column].values
+
+        assert len(set(train_patients) & set(val_patients)) == 0, f"Patient leakage detected in fold {fold_idx}!"
+
+        train_data = data[data[patient_id_column].isin(train_patients)]
+        val_data = data[data[patient_id_column].isin(val_patients)]
+
+        fold_splits.append((train_data, val_data))
+
     return fold_splits
+
