@@ -20,8 +20,8 @@ def stratified_train_test_split(data, label_column, patient_id_column, cancer_su
         total_samples = len(subtype_data)
         
         target_test_size = int(total_samples * test_size)
-        target_test_label_0 = int(target_test_size * (total_label_0 / total_samples))
-        target_test_label_1 = int(target_test_size * (total_label_1 / total_samples))
+        target_test_label_0 = max(1, int(target_test_size * (total_label_0 / total_samples))) if total_label_0 > 0 else 0
+        target_test_label_1 = max(1, int(target_test_size * (total_label_1 / total_samples))) if total_label_1 > 0 else 0
         
         grouped = subtype_data.groupby(patient_id_column)[label_column].value_counts().unstack(fill_value=0).reset_index()
         grouped = grouped.rename(columns={0: 'label_0_count', 1: 'label_1_count'})
@@ -37,11 +37,11 @@ def stratified_train_test_split(data, label_column, patient_id_column, cancer_su
         test_label_1_count = 0
         
         for _, row in grouped.iterrows():
-            if (test_label_0_count < target_test_label_0) or (test_label_1_count < target_test_label_1):
+            if test_label_0_count < target_test_label_0 or test_label_1_count < target_test_label_1:
                 test_patients.append(row[patient_id_column])
                 test_label_0_count += row['label_0_count']
                 test_label_1_count += row['label_1_count']
-            else:
+            if test_label_0_count >= target_test_label_0 and test_label_1_count >= target_test_label_1:
                 break
     
     test_data = data[data[patient_id_column].isin(test_patients)]
