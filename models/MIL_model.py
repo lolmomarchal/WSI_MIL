@@ -71,7 +71,7 @@ class MIL_SB(nn.Module):
             # print(f"all_targets_one_hot {all_targets_one_hot.shape}")
             instance_loss = self.instance_loss(probs, all_targets_one_hot)
             return instance_loss, torch.topk(logits, 1, dim=1)[1].squeeze(1), all_targets
-         if self.k_selection == "middle_wrong":
+        if self.k_selection == "middle_wrong":
              
            sorted_indices = torch.argsort(A)
            remaining_indices = sorted_indices[self.k+1: -self.k]
