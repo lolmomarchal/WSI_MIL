@@ -87,11 +87,11 @@ class MIL_SB(nn.Module):
            all_instances = torch.cat([top_k, bottom_k, mid_k], dim=0)
            all_targets = torch.cat([top_targets, bottom_targets, mid_targets], dim=0)
          
-            logits = classifier(all_instances)
-            probs = F.softmax(logits, dim=1)
-            all_targets_one_hot = torch.nn.functional.one_hot(all_targets, num_classes=2).float()
-            instance_loss = self.instance_loss(probs, all_targets_one_hot)
-            return instance_loss, torch.topk(logits, 1, dim=1)[1].squeeze(1), all_targets
+           logits = classifier(all_instances)
+           probs = F.softmax(logits, dim=1)
+           all_targets_one_hot = torch.nn.functional.one_hot(all_targets, num_classes=2).float()
+           instance_loss = self.instance_loss(probs, all_targets_one_hot)
+           return instance_loss, torch.topk(logits, 1, dim=1)[1].squeeze(1), all_targets
              
         elif self.k_selection == "middle_percentile_wrong":
             sorted_indices = torch.argsort(A)
@@ -106,10 +106,15 @@ class MIL_SB(nn.Module):
                 
             mid_k_25 = torch.index_select(h, dim = 0, index =mid_indices_25)
             mid_k_75 = torch.index_select(h, dim = 0, index = mid_indices_75)
-            mid_targets_25 = torch.full((mid_k_25.size(0),), 0, device=device)
-            mid_targets_75 = torch.full((mid_k_75.size(0),), 1, device=device)
+            mid_targets_25 = torch.full((mid_k_25.size(0),), 0, device=device).long()
+            mid_targets_75 = torch.full((mid_k_75.size(0),), 1, device=device).long()
             all_instances = torch.cat([top_k, bottom_k, mid_k_25, mid_k_75], dim=0)
             all_targets = torch.cat([top_targets, bottom_targets, mid_targets_25, mid_targets_75], dim=0)
+            logits = classifier(all_instances)
+            probs = F.softmax(logits, dim=1)
+            all_targets_one_hot = torch.nn.functional.one_hot(all_targets, num_classes=2).float()
+            instance_loss = self.instance_loss(probs, all_targets_one_hot)
+            return instance_loss, torch.topk(logits, 1, dim=1)[1].squeeze(1), all_targets
 
         elif self.k_selection == "shuffle":
 
