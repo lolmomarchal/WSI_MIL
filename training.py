@@ -436,7 +436,7 @@ def main():
             model.load_state_dict(torch.load(best_weights, weights_only=True))
 
             # now eval
-            test_loader = DataLoader(ataset(test.reset_index(),type_embed = args.type_embed), batch_size=1)
+            test_loader = DataLoader(AttentionDataset(test.reset_index(),type_embed = args.type_embed), batch_size=1)
             results = evaluate(model, test_loader, instance_eval=False, position = args.positional_embed)
             fold_metrics_testing.append(results)
             results = evaluate(model, val_loader, instance_eval=False, position =args.positional_embed)
