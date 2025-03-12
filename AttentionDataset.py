@@ -100,6 +100,7 @@ class AttentionDataset(data.Dataset):
 
                 # check feat. dim 
                 if features.ndim == 3:
+                    print("YAY")
                     random_indices = np.random.randint(0, features.shape[1], size=features.shape[0])
                     features = features[np.arange(features.shape[0]), random_indices]
                 else:
@@ -120,6 +121,7 @@ class AttentionDataset(data.Dataset):
                     knn_indices = compute_knn(coords, k)
                     local_embeddings = aggregate_local_features_euclidean(features, coords, knn_indices)
                     positional_embed = torch.from_numpy(local_embeddings)
+                    print("YAY2")
                 else:
                     positional_embed = torch.empty(2048)
                     
