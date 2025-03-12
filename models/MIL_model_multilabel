@@ -9,7 +9,7 @@ warnings.filterwarnings("ignore")
 
 from models.AttentionModel import GatedAttentionModel
 # instance_loss=cross_entropy_with_probs,
-class MIL_SB(nn.Module):
+class MIL_SB_multilabel(nn.Module):
     def __init__(self, instance_loss,  k=20, classes=2,  input_dim=2048, hidden_dim1=512, hidden_dim2=256, dropout_rate=0.25, k_selection = "shuffle"):
         super().__init__()
         self.instance_loss = instance_loss
