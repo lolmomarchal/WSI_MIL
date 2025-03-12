@@ -61,7 +61,7 @@ def positional_embeddings_sin_cos(x, y, d_model=2048):
 
 
 class AttentionDataset(data.Dataset):
-    def __init__(self, dataFile='', transform=None, positional_embed = True, type_embed = None):
+    def __init__(self, dataFile='', transform=None, positional_embed = True, type_embed = None, mode = "train"):
         if isinstance(dataFile,str):
             self.slideData = pd.read_csv(dataFile, sep=",", header=0, index_col=0)
         else:
@@ -74,6 +74,7 @@ class AttentionDataset(data.Dataset):
         self.original_slide = list(self.slideData['Original Slide Path'])
         self.positional_embeddings = []
         self.type_embed = type_embed
+        self.mode = mode
 
     def __getitem__(self, index):
         label = self.labels[index]
@@ -101,11 +102,13 @@ class AttentionDataset(data.Dataset):
 
                 # check feat. dim 
                 # print("checking features.dim")
-                if features.ndim == 3:
+                if features.ndim == 3 and self.mode == "train" :
                     # print("YAY")
                     random_indices = np.random.randint(0, features.shape[1], size=features.shape[0])
                     features = features[np.arange(features.shape[0]), random_indices]
-                    # print("done getting features")
+                elif features.ndim == 3 and self.mode != "train":
+                    
+                    features = features[np.arange(features.shape[0]), np.zeros(size=features.shape[0])]
                 else:
                     features = features
 
