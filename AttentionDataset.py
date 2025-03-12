@@ -84,7 +84,7 @@ class AttentionDataset(data.Dataset):
         except Exception as e:
             #print(f"Warning: Failed to load slide for index {index}: {e}")
             magnification = 40  
-        print("magnification done")
+        # print("magnification done")
         original_size = best_size(magnification, 256, 20)
 
         try:
@@ -100,11 +100,12 @@ class AttentionDataset(data.Dataset):
                     tile_paths = [path.decode('utf-8') for path in hdf5_file['tile_paths'][:]]
 
                 # check feat. dim 
-                print("checking features.dim")
+                # print("checking features.dim")
                 if features.ndim == 3:
-                    print("YAY")
+                    # print("YAY")
                     random_indices = np.random.randint(0, features.shape[1], size=features.shape[0])
                     features = features[np.arange(features.shape[0]), random_indices]
+                    print("done getting features")
                 else:
                     features = features
 
@@ -117,6 +118,7 @@ class AttentionDataset(data.Dataset):
                         positional_embeddings_sin_cos(x_coord, y_coord) for x_coord, y_coord in zip(x, y)
                     ]))
                 elif self.type_embed == "local":
+                    print("getting local")
                     k = 6
                     coords = [(x_, y_) for x_,y_ in zip(x, y)]
                     coords = np.array(coords)
