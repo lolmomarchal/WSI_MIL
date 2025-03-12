@@ -395,7 +395,7 @@ def main():
             index.append(f"Folds {i + 1}")
             # get the loaders
             train_dataset = AttentionDataset(train_data.reset_index(), type_embed =args.type_embed )
-            val_dataset = AttentionDataset(val_data.reset_index(),type_embed =args.type_embed )
+            val_dataset = AttentionDataset(val_data.reset_index(),type_embed =args.type_embed, mode = "val")
             train_loader = DataLoader(train_dataset, batch_size=1, shuffle=True, 
                           pin_memory=True, num_workers=os.cpu_count()-2)
             val_loader = DataLoader(val_dataset, batch_size=1, shuffle=False, 
@@ -436,7 +436,7 @@ def main():
             model.load_state_dict(torch.load(best_weights, weights_only=True))
 
             # now eval
-            test_loader = DataLoader(AttentionDataset(test.reset_index(),type_embed = args.type_embed), batch_size=1)
+            test_loader = DataLoader(AttentionDataset(test.reset_index(),type_embed = args.type_embed, mode = "test"), batch_size=1)
             results = evaluate(model, test_loader, instance_eval=False, position = args.positional_embed)
             fold_metrics_testing.append(results)
             results = evaluate(model, val_loader, instance_eval=False, position =args.positional_embed)
@@ -470,7 +470,7 @@ def main():
                                             random_state=42
                                             )
     train_dataset = AttentionDataset(train.reset_index(),type_embed =args.type_embed)
-    val_dataset = AttentionDataset(val.reset_index(),type_embed =args.type_embed)
+    val_dataset = AttentionDataset(val.reset_index(),type_embed =args.type_embed, mode = "val")
     train_loader = DataLoader(train_dataset, batch_size=1, shuffle=True)
     val_loader = DataLoader(val_dataset, batch_size=1)
     # initiate model
@@ -493,7 +493,7 @@ def main():
     best_weights = trainer.best_weights_path
     model.load_state_dict(torch.load(best_weights, weights_only=True))
     # now eval
-    test_loader = DataLoader(AttentionDataset(test.reset_index(),type_embed =args.type_embed), batch_size=1)
+    test_loader = DataLoader(AttentionDataset(test.reset_index(),type_embed =args.type_embed, mode = "test"), batch_size=1)
     results_test = evaluate(model, test_loader, instance_eval=False, position = args.positional_embed)
     results_val = evaluate(model, val_loader, instance_eval=False, position = args.positional_embed)
 
