@@ -77,18 +77,19 @@ class AttentionDataset(data.Dataset):
 
     def __getitem__(self, index):
         label = self.labels[index]
-        patient_id = None  # Initialize to handle failures
+        patient_id = None  
         try:
             slide = openslide.OpenSlide(self.original_slide[index])
             magnification = int(slide.properties.get("openslide.objective-power", 40))  # Default to 40x if missing
         except Exception as e:
             #print(f"Warning: Failed to load slide for index {index}: {e}")
             magnification = 40  
-
+        print("magnification done")
         original_size = best_size(magnification, 256, 20)
 
         try:
             with h5py.File(self.files[index], 'r') as hdf5_file:
+                print("reading features")
                 patient_id = os.path.basename(self.files[index]).replace(".h5", "")
                 features = torch.from_numpy(hdf5_file['features'][:])
                 x = hdf5_file['x'][:]
@@ -99,6 +100,7 @@ class AttentionDataset(data.Dataset):
                     tile_paths = [path.decode('utf-8') for path in hdf5_file['tile_paths'][:]]
 
                 # check feat. dim 
+                print("checking features.dim")
                 if features.ndim == 3:
                     print("YAY")
                     random_indices = np.random.randint(0, features.shape[1], size=features.shape[0])
