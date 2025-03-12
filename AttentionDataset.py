@@ -108,7 +108,7 @@ class AttentionDataset(data.Dataset):
                     features = features[np.arange(features.shape[0]), random_indices]
                 elif features.ndim == 3 and self.mode != "train":
                     
-                    features = features[np.arange(features.shape[0]), np.zeros(size=features.shape[0])]
+                    features = features[np.arange(features.shape[0]), np.zeros(features.shape[0], dtype = int)]
                 else:
                     features = features
 
