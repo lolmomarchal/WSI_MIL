@@ -119,7 +119,7 @@ class AttentionDataset(data.Dataset):
                     coords = np.array(coords)
                     knn_indices = compute_knn(coords, k)
                     local_embeddings = aggregate_local_features_euclidean(features, coords, knn_indices)
-                    positional_embed = torch.from_numpy(positional_embed)
+                    positional_embed = torch.from_numpy(local_embeddings)
                 else:
                     positional_embed = torch.empty(2048)
                     
