@@ -7,7 +7,35 @@ import torch.utils.data as data
 import pandas as pd
 import numpy as np
 import openslide
+from sklearn.neighbors import kneighbors_graph, NearestNeighbors
+from scipy.spatial.distance import cdist
 
+# spatial neighborhoods
+
+def aggregate_local_features_euclidean(embeddings, coords, knn_indices):
+    N, D = embeddings.shape
+    aggregated_embeddings = np.zeros((N, D))
+
+    for i in range(N):
+        coord_i = np.atleast_2d(coords[i])
+        
+        knn_list = list(knn_indices[i]) + [i] 
+        knn_array = np.array(knn_list)
+        neighbors = embeddings[knn_array]
+        neighbor_coords = np.atleast_2d(coords[knn_array])
+
+        distances = cdist(coord_i, neighbor_coords, metric='euclidean').flatten()
+        sigma = np.sqrt(1 / (1 * 1e-6))
+        weights = (1 / np.sqrt(2 * np.pi * sigma**2)) * np.exp(-1e-6 * distances**2)
+        weights /= weights.sum()
+        aggregated_embeddings[i] = np.sum(weights[:, None] * neighbors, axis=0)
+
+    return aggregated_embeddings
+
+def compute_knn(coords, k=5):
+    nbrs = NearestNeighbors(n_neighbors=k+1, algorithm='ball_tree').fit(coords)
+    _, indices = nbrs.kneighbors(coords)
+    return indices[:, 1:]
 
 def best_size(natural_mag, size, mag) -> int:
     new_size = natural_mag / mag
@@ -70,6 +98,13 @@ class AttentionDataset(data.Dataset):
                 else:
                     tile_paths = [path.decode('utf-8') for path in hdf5_file['tile_paths'][:]]
 
+                # check feat. dim 
+                if features.ndim == 3:
+                    random_indices = np.random.randint(0, features.shape[1], size=features.shape[0])
+                    features = features[np.arange(features.shape[0]), random_indices]
+                else:
+                    features = features
+
 
                 scales = 64  
                 magnifications = hdf5_file.get('mag', np.array([40]))[0]  
@@ -79,7 +114,11 @@ class AttentionDataset(data.Dataset):
                         positional_embeddings_sin_cos(x_coord, y_coord) for x_coord, y_coord in zip(x, y)
                     ]))
                 elif self.type_embed == "local":
-                    positional_embed = hdf5_file['positional_embeddings'][:]
+                    k = 6
+                    coords = [(x_, y_) for x_,y_ in zip(x, y)]
+                    coords = np.array(coords)
+                    knn_indices = compute_knn(coords, k)
+                    local_embeddings = aggregate_local_features_euclidean(features, coords, knn_indices)
                     positional_embed = torch.from_numpy(positional_embed)
                 else:
                     positional_embed = torch.empty(2048)
