@@ -105,7 +105,7 @@ class AttentionDataset(data.Dataset):
                     # print("YAY")
                     random_indices = np.random.randint(0, features.shape[1], size=features.shape[0])
                     features = features[np.arange(features.shape[0]), random_indices]
-                    print("done getting features")
+                    # print("done getting features")
                 else:
                     features = features
 
@@ -118,17 +118,17 @@ class AttentionDataset(data.Dataset):
                         positional_embeddings_sin_cos(x_coord, y_coord) for x_coord, y_coord in zip(x, y)
                     ]))
                 elif self.type_embed == "local":
-                    print("getting local")
+                    # print("getting local")
                     k = 6
                     coords = [(x_, y_) for x_,y_ in zip(np.array(x), np.array(y))]
                     coords = np.array(coords)
-                    print("got coords")
+                    # print("got coords")
                     knn_indices = compute_knn(coords, k)
-                    print("got indices")
+                    # print("got indices")
                     local_embeddings = aggregate_local_features_euclidean(np.array(features), coords, knn_indices)
-                    print("got embeddings")
+                    # print("got embeddings")
                     positional_embed = torch.tensor(local_embeddings)
-                    print("YAY2")
+                    # print("YAY2")
                 else:
                     positional_embed = torch.empty(2048)
                     
