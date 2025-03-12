@@ -120,11 +120,14 @@ class AttentionDataset(data.Dataset):
                 elif self.type_embed == "local":
                     print("getting local")
                     k = 6
-                    coords = [(x_, y_) for x_,y_ in zip(x, y)]
+                    coords = [(x_, y_) for x_,y_ in zip(np.array(x), np.array(y))]
                     coords = np.array(coords)
+                    print("got coords")
                     knn_indices = compute_knn(coords, k)
-                    local_embeddings = aggregate_local_features_euclidean(features, coords, knn_indices)
-                    positional_embed = torch.from_numpy(local_embeddings)
+                    print("got indices")
+                    local_embeddings = aggregate_local_features_euclidean(np.array(features), coords, knn_indices)
+                    print("got embeddings")
+                    positional_embed = torch.tensor(local_embeddings)
                     print("YAY2")
                 else:
                     positional_embed = torch.empty(2048)
