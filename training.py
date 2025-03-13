@@ -344,6 +344,7 @@ def get_args():
     parser.add_argument("--k_causal", default=20, type=int)
     parser.add_argument("--batch_save", default=5, type=int)
     parser.add_argument("--type_embed", default = None)
+    parser.add_argument("--augment", action="store_true")
     return parser.parse_args()
 
 
@@ -394,7 +395,11 @@ def main():
             print(f"\nFold {i + 1}")
             index.append(f"Folds {i + 1}")
             # get the loaders
-            train_dataset = AttentionDataset(train_data.reset_index(), type_embed =args.type_embed )
+            if args.augment:
+                train_dataset = AttentionDataset(train_data.reset_index(), type_embed =args.type_embed )
+            else:
+                train_dataset = AttentionDataset(train_data.reset_index(), type_embed =args.type_embed, mode = "val" )
+
             val_dataset = AttentionDataset(val_data.reset_index(),type_embed =args.type_embed, mode = "val")
             train_loader = DataLoader(train_dataset, batch_size=1, shuffle=True, 
                           pin_memory=True, num_workers=os.cpu_count()-2)
@@ -469,8 +474,10 @@ def main():
                                             test_size=0.2,
                                             random_state=42
                                             )
-    train_dataset = AttentionDataset(train.reset_index(),type_embed =args.type_embed)
-    val_dataset = AttentionDataset(val.reset_index(),type_embed =args.type_embed, mode = "val")
+    if args.augment:
+                    train_dataset = AttentionDataset(train_data.reset_index(), type_embed =args.type_embed )
+    else:
+                    train_dataset = AttentionDataset(train_data.reset_index(), type_embed =args.type_embed, mode = "val" )    val_dataset = AttentionDataset(val.reset_index(),type_embed =args.type_embed, mode = "val")
     train_loader = DataLoader(train_dataset, batch_size=1, shuffle=True)
     val_loader = DataLoader(val_dataset, batch_size=1)
     # initiate model
