@@ -38,11 +38,7 @@ def patient_id(row):
         return row.split("_node")[0]
 
     elif "TCGA" in row:
-        ar = row.split("-")
-        id = ""
-        for i in range(4):
-            id += ar[i] + "_"
-        return id
+       return row[:15]
     else:
         return row
 
