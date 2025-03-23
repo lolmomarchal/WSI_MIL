@@ -143,6 +143,8 @@ class AttentionDataset(data.Dataset):
             return (torch.empty(0), torch.empty(0), label, [], [], [], 64, original_size, "error")
     def __len__(self):
         return (len(self.samples))
+    def get_labels(self):
+        return self.labels
 class InstanceDataset:
     def __init__(self, bag):
         bag = bag.squeeze(0)
