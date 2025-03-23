@@ -90,7 +90,6 @@ class AttentionDataset(data.Dataset):
 
         try:
             with h5py.File(self.files[index], 'r') as hdf5_file:
-                print("reading features")
                 patient_id = os.path.basename(self.files[index]).replace(".h5", "")
                 features = torch.from_numpy(hdf5_file['features'][:])
                 x = hdf5_file['x'][:]
