@@ -397,8 +397,16 @@ def main():
                 train_dataset = AttentionDataset(train_data.reset_index(), type_embed =args.type_embed, mode = "val" )
 
             val_dataset = AttentionDataset(val_data.reset_index(),type_embed =args.type_embed, mode = "val")
-            train_loader = DataLoader(train_dataset, batch_size=1, shuffle=True, 
+            
+            # get weightedRandom Sampler 
+            class_counts = np.bincount(train_dataset.get_labels())
+            class_weights = 1.0 / class_counts
+            sample_weights = class_weights[train_dataset.get_labels()]
+            sampler = WeightedRandomSampler(weights=sample_weights, num_samples=len(sample_weights), replacement=True)
+            train_loader = DataLoader(train_dataset, batch_size=1, sampler = sampler,
                           pin_memory=True, num_workers=os.cpu_count()-2)
+
+            # in order for val_loader
             val_loader = DataLoader(val_dataset, batch_size=1, shuffle=False, 
                         pin_memory=True, num_workers=os.cpu_count()-2)
             # initiate model
@@ -409,15 +417,11 @@ def main():
           
             
             # general criterion
+            
 
 
-            print(
-                f" number of positive samples  {len(train_data[train_data['target'] == 1])} number of negative samples {len(train_data[train_data['target'] == 0])}")
-            pos_num = len(train_data[train_data["target"] == 1]) / len(train_data)
-            # weights would be
-            weights = torch.tensor([pos_num, (1 - pos_num)])
-            criterion = nn.BCEWithLogitsLoss(weight=weights)
-            print(f"weights {weights}")
+         
+            criterion = nn.BCEWithLogitsLoss()
 
             save_path = os.path.join(args.training_output, f"fold_{i + 1}")
             os.makedirs(save_path, exist_ok = True)
@@ -476,7 +480,15 @@ def main():
                     train_dataset = AttentionDataset(train.reset_index(), type_embed =args.type_embed, mode = "val" )  
     
     val_dataset = AttentionDataset(val.reset_index(),type_embed =args.type_embed, mode = "val")
-    train_loader = DataLoader(train_dataset, batch_size=1, shuffle=True)
+
+    class_counts = np.bincount(train_dataset.get_labels())
+    class_weights = 1.0 / class_counts
+    sample_weights = class_weights[train_dataset.get_labels()]
+    sampler = WeightedRandomSampler(weights=sample_weights, num_samples=len(sample_weights), replacement=True)
+    train_loader = DataLoader(train_dataset, batch_size=1, sampler = sampler,
+                          pin_memory=True, num_workers=os.cpu_count()-2)
+
+    
     val_loader = DataLoader(val_dataset, batch_size=1)
     # initiate model
     instance_loss = cross_entropy_with_probs
@@ -485,10 +497,7 @@ def main():
                    k=args.k, k_selection=args.tile_selection)
     # general criterion
 
-    pos_num = len(train[train["target"] == 1]) / len(train)
-    weights = torch.tensor([pos_num, (1 - pos_num)])
-    criterion = nn.BCEWithLogitsLoss(weight=weights)
-    print(f"weight {weights}")
+    criterion = nn.BCEWithLogitsLoss()
 
     save_path = os.path.join(args.training_output, f"train-test-split")
     trainer = Trainer(criterion, args.batch_save, model, train_loader, val_loader, save_path, train_dataset,
