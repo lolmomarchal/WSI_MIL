@@ -8,7 +8,7 @@ import csv
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from torch.utils.data import DataLoader
+from torch.utils.data import Dataset, DataLoader, WeightedRandomSampler
 from snorkel.classification import cross_entropy_with_probs
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, confusion_matrix, roc_auc_score
 from concurrent.futures import ThreadPoolExecutor, as_completed
