@@ -8,7 +8,7 @@ def stratified_train_test_split(data, label_column, patient_id_column, cancer_su
 
     # If using pre-existing split info
     if not split:
-        mask = data['split'].str.contains("test", case=False, na=False)
+        mask = data['split']astype(str).str.contains("test", case=False, na=False)
         test = data[mask]
         train = data[~mask]
         return train, test
