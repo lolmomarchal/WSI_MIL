@@ -471,9 +471,9 @@ def main():
                                             random_state=42
                                             )
     if args.augment:
-                    train_dataset = AttentionDataset(train_data.reset_index(), type_embed =args.type_embed )
+                    train_dataset = AttentionDataset(train.reset_index(), type_embed =args.type_embed )
     else:
-                    train_dataset = AttentionDataset(train_data.reset_index(), type_embed =args.type_embed, mode = "val" )  
+                    train_dataset = AttentionDataset(train.reset_index(), type_embed =args.type_embed, mode = "val" )  
     
     val_dataset = AttentionDataset(val.reset_index(),type_embed =args.type_embed, mode = "val")
     train_loader = DataLoader(train_dataset, batch_size=1, shuffle=True)
