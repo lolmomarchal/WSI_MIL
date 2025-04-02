@@ -130,7 +130,7 @@ class AttentionDataset(data.Dataset):
                     positional_embed = torch.empty(2048)
                     
 
-            return features, positional_embed, label, x, y, tile_paths, scales, original_size, patient_id
+            return features, positional_embed, label, torch.tensor(x), torch.tensor(y), tile_paths, scales, original_size, patient_id
         except Exception as e:
             print(f"Warning: Failed to load HDF5 file for index {index}: {e}")
             return (torch.empty(0), torch.empty(0), label, [], [], [], 64, original_size, "error")
