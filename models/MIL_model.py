@@ -7,7 +7,7 @@ from snorkel.classification import cross_entropy_with_probs
 import warnings
 warnings.filterwarnings("ignore")
 
-from WSI_MIL.models.AttentionModel import GatedAttentionModel
+from models.AttentionModel import GatedAttentionModel
 # instance_loss=cross_entropy_with_probs,
 class MIL_SB(nn.Module):
     def __init__(self, instance_loss,  k=20, classes=2,  input_dim=2048, hidden_dim1=512, hidden_dim2=256, dropout_rate=0.25, k_selection = "shuffle"):
