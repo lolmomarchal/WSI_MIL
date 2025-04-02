@@ -71,7 +71,10 @@ class AttentionDataset(data.Dataset):
         self.samples = list(self.slideData.index)
         self.labels = list(self.slideData['target'])
         self.files = list(self.slideData['Encoded Path'])
-        self.original_slide = list(self.slideData['Original Slide Path'])
+        if 'Original Slide Path' in self.slideData.columns:
+            self.original_slide = list(self.slideData['Original Slide Path'])
+        else:
+            self.original_slide = [0] * len(self.files)
         self.positional_embeddings = []
         self.type_embed = type_embed
         self.mode = mode
@@ -81,37 +84,34 @@ class AttentionDataset(data.Dataset):
         patient_id = None  
         try:
             slide = openslide.OpenSlide(self.original_slide[index])
-            magnification = int(slide.properties.get("openslide.objective-power", 40))  # Default to 40x if missing
+            magnification = int(slide.properties.get("openslide.objective-power", 40)) 
         except Exception as e:
-            #print(f"Warning: Failed to load slide for index {index}: {e}")
             magnification = 40  
-        # print("magnification done")
         original_size = best_size(magnification, 256, 20)
 
         try:
             with h5py.File(self.files[index], 'r') as hdf5_file:
                 patient_id = os.path.basename(self.files[index]).replace(".h5", "")
                 features = torch.from_numpy(hdf5_file['features'][:])
-                x = hdf5_file['x'][:]
-                y = hdf5_file['y'][:]
+                if "coords" in hdf5_file.keys():
+                    x , y = zip(*hdf5_file["coords"][:])
+                else:
+                    x = hdf5_file['x'][:]
+                    y = hdf5_file['y'][:]
                 if "tile_path" in hdf5_file.keys():
                     tile_paths = [path.decode('utf-8') for path in hdf5_file['tile_path'][:]]
-                else:
+                elif "tile_paths"in hdf5_file.keys():
                     tile_paths = [path.decode('utf-8') for path in hdf5_file['tile_paths'][:]]
-
-                # check feat. dim 
-                # print("checking features.dim")
+                else:
+                    tile_paths = [0] * len(x)
+         
                 if features.ndim == 3 and self.mode == "train" :
-                    # print("YAY")
                     random_indices = np.random.randint(0, features.shape[1], size=features.shape[0])
                     features = features[np.arange(features.shape[0]), random_indices]
                 elif features.ndim == 3 and self.mode != "train":
-                    
                     features = features[np.arange(features.shape[0]), np.zeros(features.shape[0], dtype = int)]
                 else:
                     features = features
-
-
                 scales = 64  
                 magnifications = hdf5_file.get('mag', np.array([40]))[0]  
                 if self.type_embed == "2D":
@@ -120,23 +120,17 @@ class AttentionDataset(data.Dataset):
                         positional_embeddings_sin_cos(x_coord, y_coord) for x_coord, y_coord in zip(x, y)
                     ]))
                 elif self.type_embed == "local":
-                    # print("getting local")
                     k = 6
                     coords = [(x_, y_) for x_,y_ in zip(np.array(x), np.array(y))]
                     coords = np.array(coords)
-                    # print("got coords")
                     knn_indices = compute_knn(coords, k)
-                    # print("got indices")
                     local_embeddings = aggregate_local_features_euclidean(np.array(features), coords, knn_indices)
-                    # print("got embeddings")
                     positional_embed = torch.tensor(local_embeddings)
-                    # print("YAY2")
                 else:
                     positional_embed = torch.empty(2048)
                     
 
             return features, positional_embed, label, x, y, tile_paths, scales, original_size, patient_id
-
         except Exception as e:
             print(f"Warning: Failed to load HDF5 file for index {index}: {e}")
             return (torch.empty(0), torch.empty(0), label, [], [], [], 64, original_size, "error")
