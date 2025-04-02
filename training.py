@@ -397,18 +397,18 @@ def main():
                 train_dataset = AttentionDataset(train_data.reset_index(), type_embed =args.type_embed, mode = "val" )
 
             val_dataset = AttentionDataset(val_data.reset_index(),type_embed =args.type_embed, mode = "val")
-            
+            pin_memory = torch.cuda.is_available()
             # get weightedRandom Sampler 
             class_counts = np.bincount(train_dataset.get_labels())
             class_weights = 1.0 / class_counts
             sample_weights = class_weights[train_dataset.get_labels()]
             sampler = WeightedRandomSampler(weights=sample_weights, num_samples=len(sample_weights), replacement=True)
             train_loader = DataLoader(train_dataset, batch_size=1, sampler = sampler,
-                          pin_memory=True, num_workers=os.cpu_count()//2)
+                          pin_memory=pin_memory, num_workers=os.cpu_count()//2)
 
             # in order for val_loader
             val_loader = DataLoader(val_dataset, batch_size=1, shuffle=False, 
-                        pin_memory=True, num_workers=os.cpu_count()//2)
+                        pin_memory=pin_memory, num_workers=os.cpu_count()//2)
             # initiate model
             instance_loss = cross_entropy_with_probs
             model = MIL_SB(instance_loss, input_dim=args.input_dim, hidden_dim1=args.hidden_dim1,
@@ -486,7 +486,7 @@ def main():
     sample_weights = class_weights[train_dataset.get_labels()]
     sampler = WeightedRandomSampler(weights=sample_weights, num_samples=len(sample_weights), replacement=True)
     train_loader = DataLoader(train_dataset, batch_size=1, sampler = sampler,
-                          pin_memory=True, num_workers=os.cpu_count()//2)
+                          pin_memory=pin_memory, num_workers=os.cpu_count()//2)
 
     
     val_loader = DataLoader(val_dataset, batch_size=1)
