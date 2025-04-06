@@ -9,28 +9,27 @@ import numpy as np
 import openslide
 from sklearn.neighbors import kneighbors_graph, NearestNeighbors
 from scipy.spatial.distance import cdist
+import jax.numpy as jnp
 
 # spatial neighborhoods
 
 def aggregate_local_features_euclidean(embeddings, coords, knn_indices):
-    N, D = embeddings.shape
-    aggregated_embeddings = np.zeros((N, D))
+    coords = jnp.array(coords)
+    embeddings = jnp.array(embeddings)
+    
+    coord_i_all = coords[:, None, :]                        # (N, 1, 2)
+    neighbor_coords = coords[knn_indices]                   # (N, k, 2)
+    distances = jnp.linalg.norm(coord_i_all - neighbor_coords, axis=-1)  # (N, k)
 
-    for i in range(N):
-        coord_i = np.atleast_2d(coords[i])
-        
-        knn_list = list(knn_indices[i]) + [i] 
-        knn_array = np.array(knn_list)
-        neighbors = embeddings[knn_array]
-        neighbor_coords = np.atleast_2d(coords[knn_array])
+    sigma = jnp.sqrt(1 / (1 * 1e-6))
+    weights = (1 / jnp.sqrt(2 * jnp.pi * sigma**2)) * jnp.exp(-1e-6 * distances**2)
+    weights = weights / jnp.sum(weights, axis=1, keepdims=True)          # (N, k)
 
-        distances = cdist(coord_i, neighbor_coords, metric='euclidean').flatten()
-        sigma = np.sqrt(1 / (1 * 1e-6))
-        weights = (1 / np.sqrt(2 * np.pi * sigma**2)) * np.exp(-1e-6 * distances**2)
-        weights /= weights.sum()
-        aggregated_embeddings[i] = np.sum(weights[:, None] * neighbors, axis=0)
-
-    return aggregated_embeddings
+    neighbors = embeddings[knn_indices]                    # (N, k, D)
+    weighted = weights[..., None] * neighbors              # (N, k, D)
+    aggregated = jnp.sum(weighted, axis=1)                 # (N, D)
+    
+    return aggregated
 
 def compute_knn(coords, k=5):
     nbrs = NearestNeighbors(n_neighbors=k+1, algorithm='ball_tree').fit(coords)
