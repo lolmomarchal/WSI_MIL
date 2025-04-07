@@ -97,7 +97,7 @@ class Trainer:
         phase_path = self.paths[phase]
         print(f"Initializing {phase} directories")
         for batch in tqdm(dataset, total = len(dataset)):
-            bags, positional, labels, x, y, tile_paths, scales, original_size, patient_id = batch
+            bags, positional, labels, x, y, tile_paths, scales, original_size, patient_id = batch.clone()
             patient_dir = os.path.join(phase_path, patient_id[0])
             patient_file = os.path.join(patient_dir, f"{patient_id[0]}.csv")
             os.makedirs(patient_dir, exist_ok=True)
@@ -412,12 +412,12 @@ def main():
             sample_weights = class_weights[train_dataset.get_labels()]
             sampler = WeightedRandomSampler(weights=sample_weights, num_samples=len(sample_weights), replacement=True)
             train_loader = DataLoader(train_dataset, batch_size=1, sampler = sampler,
-                          pin_memory=pin_memory, num_workers=1)
+                          pin_memory=pin_memory, num_workers=os.cpu_count())
             # train_loader = DataLoader(train_dataset, batch_size=1, sampler = sampler)
 
             # in order for val_loader
             val_loader = DataLoader(val_dataset, batch_size=1, shuffle=False, 
-                        pin_memory=pin_memory, num_workers=1)
+                        pin_memory=pin_memory, num_workers=os.cpu_count())
             # val_loader = DataLoader(val_dataset, batch_size=1, shuffle=False)
             # initiate model
             instance_loss = cross_entropy_with_probs
@@ -498,7 +498,7 @@ def main():
     sample_weights = class_weights[train_dataset.get_labels()]
     sampler = WeightedRandomSampler(weights=sample_weights, num_samples=len(sample_weights), replacement=True)
     # train_loader = DataLoader(train_dataset, batch_size=1, sampler = sampler,
-    #                       pin_memory=pin_memory, num_workers=1)
+    #                       pin_memory=pin_memory, num_workers=os.cpu_count())
     train_loader = DataLoader(train_dataset, batch_size=1, sampler = sampler)
 
     
