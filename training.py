@@ -102,7 +102,6 @@ class Trainer:
             bags, positional, labels, x, y, tile_paths, scales, original_size, patient_id = batch
             patient_dir = os.path.join(phase_path, patient_id[0])
             patient_file = os.path.join(patient_dir, f"{patient_id[0]}.csv")
-            print(f"patient dir: {patient_dir}, patient id: {patient_id[0]}")
             os.makedirs(patient_dir, exist_ok=True)
 
             if patient_id[0] == "error" or os.path.isfile(patient_file):
@@ -188,6 +187,7 @@ class Trainer:
                 loss = self.criterion(logits, labels_one_hot)
                 inst_count += 1
                 instance_loss = results_dict["instance_loss"].item()
+                print(f"instance loss:{instance_loss}")
                 if (labels < 0).any() or (labels >= self.model.n_classes).any():
                    print("Invalid class index in labels")
 
@@ -439,7 +439,7 @@ def main():
                         pin_memory=pin_memory, num_workers=os.cpu_count())
             # val_loader = DataLoader(val_dataset, batch_size=1, shuffle=False)
             # initiate model
-            instance_loss = nn.CrossEntropyLoss()
+            instance_loss = nn.BCELoss()
             model = MIL_SB(instance_loss, input_dim=args.input_dim, hidden_dim1=args.hidden_dim1,
                            hidden_dim2=args.hidden_dim2, dropout_rate=args.dropout,
                            k=args.k, k_selection=args.tile_selection)
