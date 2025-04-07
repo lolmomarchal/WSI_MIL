@@ -30,7 +30,7 @@ def aggregate_local_features_euclidean(embeddings, coords, knn_indices):
     weighted_neighbors = weights[:, :, None] * neighbors
     aggregated_embeddings = weighted_neighbors.sum(axis=1)
     
-    return aggregated
+    return aggregated_embeddings
 
 def compute_knn(coords, k=5):
     nbrs = NearestNeighbors(n_neighbors=k+1, algorithm='ball_tree').fit(coords)
