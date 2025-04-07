@@ -184,7 +184,6 @@ class Trainer:
                 labels_one_hot = nn.functional.one_hot(labels, num_classes=self.model.n_classes).float().to(self.device)
                 # now get the loss
                 logits = logits.to(self.device)
-                print(f"logits: {logits.shape}, labels_one_hot: {labels_one_hot.shape}")
 
                 loss = self.criterion(logits, labels_one_hot)
                 inst_count += 1
@@ -192,11 +191,9 @@ class Trainer:
                 if (labels < 0).any() or (labels >= self.model.n_classes).any():
                    print("Invalid class index in labels")
 
-                # 4. `instance_loss = results_dict["instance_loss"].item()` could silently return NaN
                 if torch.isnan(results_dict["instance_loss"]):
                     print("NaN in instance_loss")
 
-                # 5. Total loss is a weighted sum—if `instance_loss` or `loss` is NaN, `total_loss` will be too
                 if not torch.isnan(torch.tensor(instance_loss)):
                     train_inst_loss += instance_loss
                     c1 = 0.7
@@ -442,7 +439,7 @@ def main():
                         pin_memory=pin_memory, num_workers=os.cpu_count())
             # val_loader = DataLoader(val_dataset, batch_size=1, shuffle=False)
             # initiate model
-            instance_loss = cross_entropy_with_probs
+            instance_loss = nn.CrossEntropyLoss()
             model = MIL_SB(instance_loss, input_dim=args.input_dim, hidden_dim1=args.hidden_dim1,
                            hidden_dim2=args.hidden_dim2, dropout_rate=args.dropout,
                            k=args.k, k_selection=args.tile_selection)
