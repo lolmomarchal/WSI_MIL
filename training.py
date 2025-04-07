@@ -412,7 +412,7 @@ def main():
             sample_weights = class_weights[train_dataset.get_labels()]
             sampler = WeightedRandomSampler(weights=sample_weights, num_samples=len(sample_weights), replacement=True)
             train_loader = DataLoader(train_dataset, batch_size=1, sampler = sampler,
-                          pin_memory=pin_memory, num_workers=4, persistent)
+                          pin_memory=pin_memory, num_workers=4)
             # train_loader = DataLoader(train_dataset, batch_size=1, sampler = sampler)
 
             # in order for val_loader
