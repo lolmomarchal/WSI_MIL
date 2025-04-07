@@ -18,6 +18,8 @@ from models.MIL_model import MIL_SB
 from AttentionDataset import AttentionDataset, InstanceDataset, instance_dataloader
 from models.AttentionModel import GatedAttentionModel
 from fold_split import stratified_k_fold_split, stratified_train_test_split
+import torch.multiprocessing
+torch.multiprocessing.set_sharing_strategy('file_system')
 
 torch.backends.cuda.matmul.allow_tf32 = True
 torch.backends.cudnn.benchmark = True
@@ -409,14 +411,14 @@ def main():
             class_weights = 1.0 / class_counts
             sample_weights = class_weights[train_dataset.get_labels()]
             sampler = WeightedRandomSampler(weights=sample_weights, num_samples=len(sample_weights), replacement=True)
-            # train_loader = DataLoader(train_dataset, batch_size=1, sampler = sampler,
-            #               pin_memory=pin_memory, num_workers=1)
-            train_loader = DataLoader(train_dataset, batch_size=1, sampler = sampler)
+            train_loader = DataLoader(train_dataset, batch_size=1, sampler = sampler,
+                          pin_memory=pin_memory, num_workers=2)
+            # train_loader = DataLoader(train_dataset, batch_size=1, sampler = sampler)
 
             # in order for val_loader
-            # val_loader = DataLoader(val_dataset, batch_size=1, shuffle=False, 
-            #             pin_memory=pin_memory, num_workers=1)
-            val_loader = DataLoader(val_dataset, batch_size=1, shuffle=False)
+            val_loader = DataLoader(val_dataset, batch_size=1, shuffle=False, 
+                        pin_memory=pin_memory, num_workers=2)
+            # val_loader = DataLoader(val_dataset, batch_size=1, shuffle=False)
             # initiate model
             instance_loss = cross_entropy_with_probs
             model = MIL_SB(instance_loss, input_dim=args.input_dim, hidden_dim1=args.hidden_dim1,
