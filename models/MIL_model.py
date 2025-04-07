@@ -69,7 +69,7 @@ class MIL_SB(nn.Module):
             # print(f"probs {probs.shape}")
             all_targets_one_hot = torch.nn.functional.one_hot(all_targets, num_classes=2).float()
             # print(f"all_targets_one_hot {all_targets_one_hot.shape}")
-            instance_loss = self.instance_loss(probs, all_targets_one_hot)
+            instance_loss = self.instance_loss(logits, all_targets)
             return instance_loss, torch.topk(logits, 1, dim=1)[1].squeeze(1), all_targets
         if self.k_selection == "middle_wrong":
              
@@ -88,9 +88,9 @@ class MIL_SB(nn.Module):
            all_targets = torch.cat([top_targets, bottom_targets, mid_targets], dim=0)
          
            logits = classifier(all_instances)
-           probs = F.softmax(logits, dim=1)
+           # probs = F.softmax(logits, dim=1)
            all_targets_one_hot = torch.nn.functional.one_hot(all_targets, num_classes=2).float()
-           instance_loss = self.instance_loss(probs, all_targets_one_hot)
+           instance_loss = self.instance_loss(logits, all_targets)
            return instance_loss, torch.topk(logits, 1, dim=1)[1].squeeze(1), all_targets
              
         elif self.k_selection == "middle_percentile_wrong":
@@ -111,9 +111,7 @@ class MIL_SB(nn.Module):
             all_instances = torch.cat([top_k, bottom_k, mid_k_25, mid_k_75], dim=0)
             all_targets = torch.cat([top_targets, bottom_targets, mid_targets_25, mid_targets_75], dim=0)
             logits = classifier(all_instances)
-            probs = F.softmax(logits, dim=1)
-            all_targets_one_hot = torch.nn.functional.one_hot(all_targets, num_classes=2).float()
-            instance_loss = self.instance_loss(probs, all_targets_one_hot)
+            instance_loss = self.instance_loss(logits, all_targets)
             return instance_loss, torch.topk(logits, 1, dim=1)[1].squeeze(1), all_targets
 
         elif self.k_selection == "shuffle":
@@ -198,7 +196,7 @@ class MIL_SB(nn.Module):
         all_targets_probs = all_targets.float()
         all_targets_probs = torch.stack([1 - all_targets_probs, all_targets_probs], dim=1)
         print(f"all_targets_probs {all_targets_probs.shape}")
-        loss_output = self.instance_loss(probs, all_targets_probs)
+        loss_output = self.instance_loss(logits, all_targets_probs)
         print(f"instance_loss output: {loss_output}")
         print("---------------")
         return loss_output, torch.topk(logits, 1, dim=1)[1].squeeze(1), all_targets
