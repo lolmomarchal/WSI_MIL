@@ -20,8 +20,10 @@ from models.AttentionModel import GatedAttentionModel
 from fold_split import stratified_k_fold_split, stratified_train_test_split
 import torch.multiprocessing
 # torch.multiprocessing.set_sharing_strategy('file_system')
-
-torch.backends.cuda.matmul.allow_tf32 = True
+if torch.cuda.is_available():
+    torch.cuda.manual_seed(42)
+torch.manual_seed(42)
+# torch.backends.cuda.matmul.allow_tf32 = True
 torch.backends.cudnn.benchmark = True
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 # import torch.multiprocessing as mp
@@ -204,30 +206,30 @@ class Trainer:
 
     def _validate_epoch(self, epoch):
         running_loss, running_correct, total = 0.0, 0, 0
-        for bags, positional, labels, x, y, tile_paths, scales, original_size, patient_id in tqdm(self.val_loader,
-                                                                                                  desc=f"Epoch {epoch + 1} [Val]"):
-            if patient_id[0] == "error":
-                continue
-            try:
-                bags, positional, labels = bags.to(self.device,  non_blocking=True), positional.to(self.device,  non_blocking=True), labels.to(self.device,  non_blocking=True)
-                with torch.no_grad():
-                    self.model.eval()
+        with torch.inference_mode():
+            self.model.eval()
+            for bags, positional, labels, x, y, tile_paths, scales, original_size, patient_id in tqdm(self.val_loader,
+                                                                                                      desc=f"Epoch {epoch + 1} [Val]"):
+                if patient_id[0] == "error":
+                    continue
+                try:
+                    bags, positional, labels = bags.to(self.device,  non_blocking=True), positional.to(self.device,  non_blocking=True), labels.to(self.device,  non_blocking=True)
+
                     if self.positional_embed:
-                        logits, Y_prob, _, A_raw, results_dict, h = self.model(bags, pos = positional ,label=labels, instance_eval=True)
+                            logits, Y_prob, _, A_raw, results_dict, h = self.model(bags, pos = positional ,label=labels, instance_eval=True)
                     else:
-                         logits, Y_prob, _, A_raw, results_dict, h = self.model(bags, pos = None ,label=labels, instance_eval=True)
-                   
+                             logits, Y_prob, _, A_raw, results_dict, h = self.model(bags, pos = None ,label=labels, instance_eval=True)
+
                     labels_one_hot = nn.functional.one_hot(labels, num_classes=self.model.n_classes).float()
-                    logits = torch.sigmoid(logits)
                     loss = self.criterion(logits, labels_one_hot)
-    
+
                     running_loss += loss.item()
                     running_correct += (logits.argmax(dim=1) == labels).sum().item()
                     total += labels.size(0)
-    
+
                     if epoch % self.batch_save == 0:
-                        self._save_attention(epoch, A_raw, bags, positional, patient_id, h, phase="val")
-            except:
+                            self._save_attention(epoch, A_raw, bags, positional, patient_id, h, phase="val")
+                except:
                     continue 
 
         val_loss = running_loss / len(self.val_loader)
@@ -414,12 +416,12 @@ def main():
             sample_weights = class_weights[train_dataset.get_labels()]
             sampler = WeightedRandomSampler(weights=sample_weights, num_samples=len(sample_weights), replacement=True)
             train_loader = DataLoader(train_dataset, batch_size=1, sampler = sampler,
-                          pin_memory=pin_memory, num_workers=4)
+                          pin_memory=pin_memory, num_workers=os.cpu_count())
             # train_loader = DataLoader(train_dataset, batch_size=1, sampler = sampler)
 
             # in order for val_loader
             val_loader = DataLoader(val_dataset, batch_size=1, shuffle=False, 
-                        pin_memory=pin_memory, num_workers=4)
+                        pin_memory=pin_memory, num_workers=os.cpu_count())
             # val_loader = DataLoader(val_dataset, batch_size=1, shuffle=False)
             # initiate model
             instance_loss = cross_entropy_with_probs
@@ -433,7 +435,7 @@ def main():
 
 
          
-            criterion = nn.BCEWithLogitsLoss()
+            criterion = nn.CrossEntropyLoss()
 
             save_path = os.path.join(args.training_output, f"fold_{i + 1}")
             os.makedirs(save_path, exist_ok = True)
@@ -456,9 +458,9 @@ def main():
             # test_loader = DataLoader(AttentionDataset(test.reset_index(),type_embed = args.type_embed, mode = "test"), batch_size=1, pin_memory = True, num_workers = 1)
             test_loader = DataLoader(AttentionDataset(test.reset_index(),type_embed = args.type_embed, mode = "test"), batch_size=1)
 
-            results = evaluate(model, test_loader, instance_eval=False, position = args.positional_embed)
+            results = evaluate(model, test_loader, instance_eval=True, position = args.positional_embed)
             fold_metrics_testing.append(results)
-            results = evaluate(model, val_loader, instance_eval=False, position =args.positional_embed)
+            results = evaluate(model, val_loader, instance_eval=True, position =args.positional_embed)
             fold_metrics_val.append(results)
             write_eval_crossval([fold_metrics_testing[i], fold_metrics_val[i]],
                                 os.path.join(save_path, "test-val_eval.csv"), ["Testing", "Validation", "Average"])
@@ -500,7 +502,7 @@ def main():
     sample_weights = class_weights[train_dataset.get_labels()]
     sampler = WeightedRandomSampler(weights=sample_weights, num_samples=len(sample_weights), replacement=True)
     # train_loader = DataLoader(train_dataset, batch_size=1, sampler = sampler,
-    #                       pin_memory=pin_memory, num_workers=4)
+    #                       pin_memory=pin_memory, num_workers=os.cpu_count())
     train_loader = DataLoader(train_dataset, batch_size=1, sampler = sampler)
 
     
@@ -512,7 +514,7 @@ def main():
                    k=args.k, k_selection=args.tile_selection)
     # general criterion
 
-    criterion = nn.BCEWithLogitsLoss()
+    criterion = nn.CrossEntropyLoss()
 
     save_path = os.path.join(args.training_output, f"train-test-split")
     trainer = Trainer(criterion, args.batch_save, model, train_loader, val_loader, save_path, train_dataset,
