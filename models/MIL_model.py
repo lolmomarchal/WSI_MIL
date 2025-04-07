@@ -27,7 +27,7 @@ class MIL_SB(nn.Module):
         self.k_middle = self.k
 
     def instance_evaluation(self, A, h, classifier):
-        #print("Eval in")
+        print("Eval in")
         # print(f"h shape")
         # print(h.shape)
 
@@ -199,6 +199,7 @@ class MIL_SB(nn.Module):
         all_targets_probs = torch.stack([1 - all_targets_probs, all_targets_probs], dim=1)
         loss_output = self.instance_loss(probs, all_targets_probs)
         print(f"instance_loss output: {loss_output}")
+        print("---------------")
         return loss_output, torch.topk(logits, 1, dim=1)[1].squeeze(1), all_targets
 
     def instance_evaluation_out(self, A, h,  classifier):
@@ -220,6 +221,8 @@ class MIL_SB(nn.Module):
         probs = F.softmax(logits, dim=1)
         instance_loss = self.instance_loss(probs, top_targets)
         print(f"instance loss:{instance_loss}")
+        print("---------------")
+
         return instance_loss, torch.topk(logits, 1, dim=1)[1].squeeze(1), top_targets 
 
     def forward(self, h, label = 1, pos = None, instance_eval=True, return_features=False, attention_only=False):
