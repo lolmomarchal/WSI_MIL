@@ -27,8 +27,8 @@ class MIL_SB(nn.Module):
         self.k_middle = self.k
 
     def instance_evaluation(self, A, h, classifier):
-        # print("---------------")
-        # print("Eval in")
+        print("---------------")
+        print("Eval in")
         # print(f"h shape")
         # print(h.shape)
 
@@ -67,15 +67,12 @@ class MIL_SB(nn.Module):
             # print(f"all_targets {all_targets.shape}")
             # print(f"all_instances {all_instances.shape}")
             logits = classifier(all_instances)
-            # print(f"logits {logits.shape}")
+            print(f"logits {logits.shape}   {logits}")
 
-
-            probs = F.softmax(logits, dim=1)
-            # print(f"probs {probs.shape}")
             all_targets_one_hot = torch.nn.functional.one_hot(all_targets, num_classes=2).float()
-            # print(f"all_targets_one_hot {all_targets_one_hot.shape}")
+            print(f"all_targets_one_hot {all_targets_one_hot.shape}, {all_targets_one_hot}")
             instance_loss = self.instance_loss(logits, all_targets_one_hot)
-            # print(f"instance_loss: {instance_loss}")
+            print(f"instance_loss: {instance_loss}")
             return instance_loss, torch.topk(logits, 1, dim=1)[1].squeeze(1), all_targets
         if self.k_selection == "middle_wrong":
 
@@ -192,14 +189,14 @@ class MIL_SB(nn.Module):
         # print(f"all_targets_probs {all_targets_probs.shape}")
         loss_output = self.instance_loss(logits, all_targets_probs)
         # print(f"instance_loss output: {loss_output}")
-        # print("---------------")
+        print("---------------")
         return loss_output, torch.topk(logits, 1, dim=1)[1].squeeze(1), all_targets
 
     def instance_evaluation_out(self, A, h,  classifier):
         device = h.device
         # print("----")
-        # print("---------------")
-        # print("evaluation out")
+        print("---------------")
+        print("evaluation out")
         if len(A.shape) == 1:
             A = A.view(1, -1)
         A = A.view(-1)
@@ -215,12 +212,12 @@ class MIL_SB(nn.Module):
 
         logits = classifier(top_k)
         # probs = F.softmax(logits, dim=1)
-        # print(f"top_targets_probs {top_targets_probs.shape}")
-        # print(f"logits {logits.shape}")
+        print(f"top_targets_probs {top_targets_probs.shape} {top_targets_probs}")
+        print(f"logits {logits.shape} {logits}")
 
         instance_loss = self.instance_loss(logits, top_targets_probs)
-        # print(f"instance loss:{instance_loss}")
-        # print("---------------")
+        print(f"instance loss:{instance_loss}")
+        print("---------------")
 
         return instance_loss, torch.topk(logits, 1, dim=1)[1].squeeze(1), top_targets 
 
