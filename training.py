@@ -439,7 +439,7 @@ def main():
                         pin_memory=pin_memory, num_workers=os.cpu_count())
             # val_loader = DataLoader(val_dataset, batch_size=1, shuffle=False)
             # initiate model
-            instance_loss = nn.BCELoss()
+            instance_loss =  nn.CrossEntropyLoss()
             model = MIL_SB(instance_loss, input_dim=args.input_dim, hidden_dim1=args.hidden_dim1,
                            hidden_dim2=args.hidden_dim2, dropout_rate=args.dropout,
                            k=args.k, k_selection=args.tile_selection)
