@@ -102,6 +102,7 @@ class Trainer:
             bags, positional, labels, x, y, tile_paths, scales, original_size, patient_id = batch
             patient_dir = os.path.join(phase_path, patient_id[0])
             patient_file = os.path.join(patient_dir, f"{patient_id[0]}.csv")
+            print(f"patient dir: {patient_dir}, patient id: {patient_id}")
             os.makedirs(patient_dir, exist_ok=True)
 
             if patient_id[0] == "error" or os.path.isfile(patient_file):
