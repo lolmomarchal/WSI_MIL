@@ -417,12 +417,12 @@ def main():
             sample_weights = class_weights[train_dataset.get_labels()]
             sampler = WeightedRandomSampler(weights=sample_weights, num_samples=len(sample_weights), replacement=True)
             train_loader = DataLoader(train_dataset, batch_size=1, sampler = sampler,
-                          pin_memory=pin_memory, num_workers=4)
+                          pin_memory=pin_memory, num_workers=0)
             # train_loader = DataLoader(train_dataset, batch_size=1, sampler = sampler)
 
             # in order for val_loader
             val_loader = DataLoader(val_dataset, batch_size=1, shuffle=False, 
-                        pin_memory=pin_memory, num_workers=4)
+                        pin_memory=pin_memory, num_workers=0)
             # val_loader = DataLoader(val_dataset, batch_size=1, shuffle=False)
             # initiate model
             instance_loss = cross_entropy_with_probs
@@ -503,7 +503,7 @@ def main():
     sample_weights = class_weights[train_dataset.get_labels()]
     sampler = WeightedRandomSampler(weights=sample_weights, num_samples=len(sample_weights), replacement=True)
     # train_loader = DataLoader(train_dataset, batch_size=1, sampler = sampler,
-    #                       pin_memory=pin_memory, num_workers=4)
+    #                       pin_memory=pin_memory, num_workers=0)
     train_loader = DataLoader(train_dataset, batch_size=1, sampler = sampler)
 
     
