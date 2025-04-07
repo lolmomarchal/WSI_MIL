@@ -100,19 +100,19 @@ class Trainer:
         print(f"Initializing {phase} directories")
         for batch in tqdm(dataset, total = len(dataset)):
             bags, positional, labels, x, y, tile_paths, scales, original_size, patient_id = batch
-            patient_dir = os.path.join(phase_path, patient_id[0])
-            patient_file = os.path.join(patient_dir, f"{patient_id[0]}.csv")
-            print(f"patient dir: {patient_dir}, patient id: {patient_id[0]}")
+            patient_dir = os.path.join(phase_path, patient_id)
+            patient_file = os.path.join(patient_dir, f"{patient_id}.csv")
+            # print(f"patient dir: {patient_dir}, patient id: {patient_id}")
             os.makedirs(patient_dir, exist_ok=True)
 
             if patient_id[0] == "error" or os.path.isfile(patient_file):
                 continue
             temp = pd.DataFrame()
-            x = np.array(x.squeeze()).flatten().copy()  
-            y = np.array(y.squeeze()).flatten().copy()  
-            tile_paths = np.array(tile_paths).flatten().copy()  # Added .copy()
-            scales = np.repeat(scales.numpy().copy(), len(x)) # Ensure scales is also copied if it's a tensor
-            original_size = np.repeat(original_size.numpy().copy().astype(int), len(x)) # Ensure original_size is also copied
+            x = np.array(x.squeeze()).flatten()
+            y = np.array(y.squeeze()).flatten()
+            tile_paths = np.array(tile_paths).flatten()  # Added .copy()
+            scales = np.repeat(scales, len(x)) # Ensure scales is also copied if it's a tensor
+            original_size = np.repeat(original_size, len(x)) # Ensure original_size is also copied
 
             temp["x"] = x
             temp["y"] = y
@@ -130,8 +130,8 @@ class Trainer:
 
     def train(self):
         # train loop
-        self._save_patient_data(self.train_loader, "train")
-        self._save_patient_data(self.val_loader, "val")
+        self._save_patient_data(self.train_dataset, "train")
+        self._save_patient_data(self.val_dataset, "val")
         print("Training")
         with open(self.training_log_path, mode='a', newline='') as file:
             writer = csv.writer(file)
@@ -179,16 +179,29 @@ class Trainer:
                 else:
                      logits, Y_prob, _, A_raw, results_dict, h = self.model(bags, pos = None,label=labels, instance_eval=True)
 
+
                     
                 labels_one_hot = nn.functional.one_hot(labels, num_classes=self.model.n_classes).float().to(self.device)
                 # now get the loss
                 logits = logits.to(self.device)
+                print(f"logits: {logits.shape}, labels_one_hot: {labels_one_hot.shape}")
+
                 loss = self.criterion(logits, labels_one_hot)
                 inst_count += 1
                 instance_loss = results_dict["instance_loss"].item()
+                if (labels < 0).any() or (labels >= self.model.n_classes).any():
+                   print("Invalid class index in labels")
+
+                # 4. `instance_loss = results_dict["instance_loss"].item()` could silently return NaN
+                if torch.isnan(results_dict["instance_loss"]):
+                    print("NaN in instance_loss")
+
+                # 5. Total loss is a weighted sum—if `instance_loss` or `loss` is NaN, `total_loss` will be too
                 train_inst_loss += instance_loss
                 c1 = 0.7
                 total_loss = c1 * loss + (1 - c1) * instance_loss
+                if torch.isnan(total_loss):
+                    print("NaN in total_loss")
                 total_loss.backward()
                 self.optimizer.step()
                 running_loss += loss.item()
