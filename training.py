@@ -98,11 +98,6 @@ class Trainer:
         print(f"Initializing {phase} directories")
         for batch in tqdm(dataset, total = len(dataset)):
             bags, positional, labels, x, y, tile_paths, scales, original_size, patient_id = batch
-            x = x.clone()
-            y = y.clone()
-            tile_paths = tile_paths.clone()
-            scales = scales.clone()
-            original_size = original_size.clone()
             patient_dir = os.path.join(phase_path, patient_id[0])
             patient_file = os.path.join(patient_dir, f"{patient_id[0]}.csv")
             os.makedirs(patient_dir, exist_ok=True)
