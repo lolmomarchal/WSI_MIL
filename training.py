@@ -197,7 +197,7 @@ class Trainer:
                     print("NaN in instance_loss")
 
                 # 5. Total loss is a weighted sum—if `instance_loss` or `loss` is NaN, `total_loss` will be too
-                if not  torch.isnan(instance_loss):
+                if not torch.isnan(torch.tensor(instance_loss)):
                     train_inst_loss += instance_loss
                     c1 = 0.7
                     total_loss = c1 * loss + (1 - c1) * instance_loss
