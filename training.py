@@ -187,11 +187,17 @@ class Trainer:
                 loss = self.criterion(logits, labels_one_hot)
                 inst_count += 1
                 instance_loss = results_dict["instance_loss"].item()
-                # print(f"instance loss:{instance_loss}")
-                train_inst_loss += instance_loss
-                c1 = 0.7
-                total_loss = c1 * loss + (1 - c1) * instance_loss
-                total_loss.backward()
+                print(f"[TRAIN] instance loss:{instance_loss}")
+                print(f"[TRAIN] BAG loss:{loss}")
+                
+                if not torch.isnan(torch.tensor(instance_loss)):
+                    train_inst_loss += instance_loss
+                    c1 = 0.7
+                    total_loss = c1 * loss + (1 - c1) * instance_loss
+                    total_loss.backward()
+                else:
+                    loss.backward()
+                    
 
 
                     
