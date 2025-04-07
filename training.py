@@ -100,9 +100,9 @@ class Trainer:
         print(f"Initializing {phase} directories")
         for batch in tqdm(dataset, total = len(dataset)):
             bags, positional, labels, x, y, tile_paths, scales, original_size, patient_id = batch
-            patient_dir = os.path.join(phase_path, patient_id)
-            patient_file = os.path.join(patient_dir, f"{patient_id}.csv")
-            # print(f"patient dir: {patient_dir}, patient id: {patient_id}")
+            patient_dir = os.path.join(phase_path, patient_id[0])
+            patient_file = os.path.join(patient_dir, f"{patient_id[0]}.csv")
+            print(f"patient dir: {patient_dir}, patient id: {patient_id[0]}")
             os.makedirs(patient_dir, exist_ok=True)
 
             if patient_id[0] == "error" or os.path.isfile(patient_file):
@@ -459,8 +459,9 @@ def main():
             test.loc[:,"split"] = "test"
             df_split = pd.concat([train_data, val_data, test])
             df_split.to_csv(os.path.join(save_path,"fold_splits.csv"), index = False)
-            trainer = Trainer(criterion, args.batch_save, model, train_loader, val_loader, save_path, train_dataset,
-                              val_dataset, num_epochs=args.epochs,
+            trainer = Trainer(criterion, args.batch_save, model, train_loader, val_loader, save_path,  DataLoader(train_dataset, batch_size=1,
+                          pin_memory=pin_memory, num_workers=os.cpu_count()),
+                              val_loader, num_epochs=args.epochs,
                               patience=args.patience, positional_embed=args.positional_embed)
 
             trainer.train()
