@@ -187,22 +187,13 @@ class Trainer:
                 loss = self.criterion(logits, labels_one_hot)
                 inst_count += 1
                 instance_loss = results_dict["instance_loss"].item()
-                print(f"instance loss:{instance_loss}")
-                if (labels < 0).any() or (labels >= self.model.n_classes).any():
-                   print("Invalid class index in labels")
+                # print(f"instance loss:{instance_loss}")
+                train_inst_loss += instance_loss
+                c1 = 0.7
+                total_loss = c1 * loss + (1 - c1) * instance_loss
+                total_loss.backward()
 
-                if torch.isnan(results_dict["instance_loss"]):
-                    print("NaN in instance_loss")
 
-                if not torch.isnan(torch.tensor(instance_loss)):
-                    train_inst_loss += instance_loss
-                    c1 = 0.7
-                    total_loss = c1 * loss + (1 - c1) * instance_loss
-                    if torch.isnan(total_loss):
-                        print("NaN in total_loss")
-                else:
-                    print(logits)
-                    loss.backward()
                     
                 self.optimizer.step()
                 running_loss += loss.item()
