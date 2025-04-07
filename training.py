@@ -22,7 +22,13 @@ from fold_split import stratified_k_fold_split, stratified_train_test_split
 torch.backends.cuda.matmul.allow_tf32 = True
 torch.backends.cudnn.benchmark = True
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+import torch.multiprocessing as mp
+mp.set_start_method('fork', force=True)
 
+import resource
+soft, hard = resource.getrlimit(resource.RLIMIT_NOFILE)
+print(f"Soft limit: {soft}, Hard limit: {hard}")
+resource.setrlimit(resource.RLIMIT_NOFILE, (min(hard, 65536), hard))
 
 class color:
     reset = '\033[0m'
@@ -404,11 +410,11 @@ def main():
             sample_weights = class_weights[train_dataset.get_labels()]
             sampler = WeightedRandomSampler(weights=sample_weights, num_samples=len(sample_weights), replacement=True)
             train_loader = DataLoader(train_dataset, batch_size=1, sampler = sampler,
-                          pin_memory=pin_memory, num_workers=1)
+                          pin_memory=pin_memory, num_workers=2)
 
             # in order for val_loader
             val_loader = DataLoader(val_dataset, batch_size=1, shuffle=False, 
-                        pin_memory=pin_memory, num_workers=1)
+                        pin_memory=pin_memory, num_workers=2)
             # initiate model
             instance_loss = cross_entropy_with_probs
             model = MIL_SB(instance_loss, input_dim=args.input_dim, hidden_dim1=args.hidden_dim1,
@@ -486,7 +492,7 @@ def main():
     sample_weights = class_weights[train_dataset.get_labels()]
     sampler = WeightedRandomSampler(weights=sample_weights, num_samples=len(sample_weights), replacement=True)
     train_loader = DataLoader(train_dataset, batch_size=1, sampler = sampler,
-                          pin_memory=pin_memory, num_workers=1)
+                          pin_memory=pin_memory, num_workers=2)
 
     
     val_loader = DataLoader(val_dataset, batch_size=1)
