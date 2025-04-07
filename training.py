@@ -409,12 +409,14 @@ def main():
             class_weights = 1.0 / class_counts
             sample_weights = class_weights[train_dataset.get_labels()]
             sampler = WeightedRandomSampler(weights=sample_weights, num_samples=len(sample_weights), replacement=True)
-            train_loader = DataLoader(train_dataset, batch_size=1, sampler = sampler,
-                          pin_memory=pin_memory, num_workers=2)
+            # train_loader = DataLoader(train_dataset, batch_size=1, sampler = sampler,
+            #               pin_memory=pin_memory, num_workers=1)
+            train_loader = DataLoader(train_dataset, batch_size=1, sampler = sampler)
 
             # in order for val_loader
-            val_loader = DataLoader(val_dataset, batch_size=1, shuffle=False, 
-                        pin_memory=pin_memory, num_workers=2)
+            # val_loader = DataLoader(val_dataset, batch_size=1, shuffle=False, 
+            #             pin_memory=pin_memory, num_workers=1)
+            val_loader = DataLoader(val_dataset, batch_size=1, shuffle=False)
             # initiate model
             instance_loss = cross_entropy_with_probs
             model = MIL_SB(instance_loss, input_dim=args.input_dim, hidden_dim1=args.hidden_dim1,
@@ -447,7 +449,9 @@ def main():
             model.load_state_dict(torch.load(best_weights, weights_only=True))
 
             # now eval
-            test_loader = DataLoader(AttentionDataset(test.reset_index(),type_embed = args.type_embed, mode = "test"), batch_size=1, pin_memory = True, num_workers = 1)
+            # test_loader = DataLoader(AttentionDataset(test.reset_index(),type_embed = args.type_embed, mode = "test"), batch_size=1, pin_memory = True, num_workers = 1)
+            test_loader = DataLoader(AttentionDataset(test.reset_index(),type_embed = args.type_embed, mode = "test"), batch_size=1)
+
             results = evaluate(model, test_loader, instance_eval=False, position = args.positional_embed)
             fold_metrics_testing.append(results)
             results = evaluate(model, val_loader, instance_eval=False, position =args.positional_embed)
@@ -491,8 +495,9 @@ def main():
     class_weights = 1.0 / class_counts
     sample_weights = class_weights[train_dataset.get_labels()]
     sampler = WeightedRandomSampler(weights=sample_weights, num_samples=len(sample_weights), replacement=True)
-    train_loader = DataLoader(train_dataset, batch_size=1, sampler = sampler,
-                          pin_memory=pin_memory, num_workers=2)
+    # train_loader = DataLoader(train_dataset, batch_size=1, sampler = sampler,
+    #                       pin_memory=pin_memory, num_workers=2)
+    train_loader = DataLoader(train_dataset, batch_size=1, sampler = sampler)
 
     
     val_loader = DataLoader(val_dataset, batch_size=1)
@@ -513,7 +518,9 @@ def main():
     best_weights = trainer.best_weights_path
     model.load_state_dict(torch.load(best_weights, weights_only=True))
     # now eval
-    test_loader = DataLoader(AttentionDataset(test.reset_index(),type_embed =args.type_embed, mode = "test"), batch_size=1, num_workers = os.cpu_count(), pin_memory = True)
+    # test_loader = DataLoader(AttentionDataset(test.reset_index(),type_embed =args.type_embed, mode = "test"), batch_size=1, num_workers = os.cpu_count(), pin_memory = True)
+        test_loader = DataLoader(AttentionDataset(test.reset_index(),type_embed =args.type_embed, mode = "test"))
+
     results_test = evaluate(model, test_loader, instance_eval=False, position = args.positional_embed)
     results_val = evaluate(model, val_loader, instance_eval=False, position = args.positional_embed)
 
