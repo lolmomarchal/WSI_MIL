@@ -197,12 +197,16 @@ class Trainer:
                     print("NaN in instance_loss")
 
                 # 5. Total loss is a weighted sum—if `instance_loss` or `loss` is NaN, `total_loss` will be too
-                train_inst_loss += instance_loss
-                c1 = 0.7
-                total_loss = c1 * loss + (1 - c1) * instance_loss
-                if torch.isnan(total_loss):
-                    print("NaN in total_loss")
-                total_loss.backward()
+                if not  torch.isnan(instance_loss):
+                    train_inst_loss += instance_loss
+                    c1 = 0.7
+                    total_loss = c1 * loss + (1 - c1) * instance_loss
+                    if torch.isnan(total_loss):
+                        print("NaN in total_loss")
+                else:
+                    print(logits)
+                    loss.backward()
+                    
                 self.optimizer.step()
                 running_loss += loss.item()
                 running_correct += (logits.argmax(dim=1) == labels).sum().item()
