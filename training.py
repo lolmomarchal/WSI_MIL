@@ -101,21 +101,23 @@ class Trainer:
             patient_dir = os.path.join(phase_path, patient_id[0])
             patient_file = os.path.join(patient_dir, f"{patient_id[0]}.csv")
             os.makedirs(patient_dir, exist_ok=True)
-    
+
             if patient_id[0] == "error" or os.path.isfile(patient_file):
                 continue
             temp = pd.DataFrame()
-            x = np.array(x.squeeze()).flatten()
-            y = np.array(y.squeeze()).flatten()
-            tile_paths = np.array(tile_paths).flatten()
-            scales = np.repeat(scales, len(x))
-            original_size = np.repeat(int(original_size), len(x))
-    
+            x = np.array(x.squeeze()).flatten().copy()  
+            y = np.array(y.squeeze()).flatten().copy()  
+            tile_paths = np.array(tile_paths).flatten().copy()  # Added .copy()
+            scales = np.repeat(scales.numpy().copy(), len(x)) # Ensure scales is also copied if it's a tensor
+            original_size = np.repeat(original_size.numpy().copy().astype(int), len(x)) # Ensure original_size is also copied
+
             temp["x"] = x
             temp["y"] = y
             temp["tile_paths"] = tile_paths
             temp["scale"] = scales
             temp["size"] = original_size
+
+            temp.to_csv(patient_file, index=False)
     
             temp.to_csv(patient_file, index=False)
     def _calculate_accuracy(self, outputs, labels):
