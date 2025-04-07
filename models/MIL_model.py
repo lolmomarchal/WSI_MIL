@@ -197,6 +197,7 @@ class MIL_SB(nn.Module):
 
         all_targets_probs = all_targets.float()
         all_targets_probs = torch.stack([1 - all_targets_probs, all_targets_probs], dim=1)
+        print(f"all_targets_probs {all_targets_probs.shape}")
         loss_output = self.instance_loss(probs, all_targets_probs)
         print(f"instance_loss output: {loss_output}")
         print("---------------")
@@ -216,6 +217,8 @@ class MIL_SB(nn.Module):
         top_targets = torch.full((self.k, ), 0, device=device).long().unsqueeze(0)
         print(f"top_k {top_k.shape}")
         print(f"top_targets {top_k.shape}")
+        top_targets_probs = torch.stack([1 - top_targets, top_targets], dim=1)
+
 
         logits = classifier(top_k)
         probs = F.softmax(logits, dim=1)
