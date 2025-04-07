@@ -184,13 +184,13 @@ class MIL_SB(nn.Module):
             all_targets = torch.cat([top_targets, bottom_targets, mid_targets_25, mid_targets_75], dim=0)
 
         logits = classifier(all_instances)
-        # print(f"logits shape {logits.shape}")
+        print(f"logits shape {logits.shape}")
 
         probs = F.softmax(logits, dim=1)
-        # print(f"probs shape {probs.shape}")
+        print(f"probs shape {probs.shape}")
 
         all_targets_probs = all_targets.float()
-        # print(f"all_targets_one_hot {all_targets_probs.shape}")
+        print(f"all_targets_one_hot {all_targets_probs.shape}")
 
         # Extracting second column correctly
         # print(f"probs[:,1] shape: {probs[:,1].shape}")
@@ -198,13 +198,13 @@ class MIL_SB(nn.Module):
         all_targets_probs = all_targets.float()
         all_targets_probs = torch.stack([1 - all_targets_probs, all_targets_probs], dim=1)
         loss_output = self.instance_loss(probs, all_targets_probs)
-        # print(f"instance_loss output: {loss_output}")
+        print(f"instance_loss output: {loss_output}")
         return loss_output, torch.topk(logits, 1, dim=1)[1].squeeze(1), all_targets
 
     def instance_evaluation_out(self, A, h,  classifier):
         device = h.device
         # print("----")
-        #print("evaluation out")
+        print("evaluation out")
         if len(A.shape) == 1:
             A = A.view(1, -1)
         A = A.view(-1)
@@ -213,25 +213,14 @@ class MIL_SB(nn.Module):
         top_k = torch.index_select(h, dim=0, index=torch.topk(A, self.k)[1][-1])
 
         top_targets = torch.full((self.k, ), 0, device=device).long().unsqueeze(0)
-        # print(f"top_k {top_k.shape}")
-        # print(f"top_targets {top_k.shape}")
+        print(f"top_k {top_k.shape}")
+        print(f"top_targets {top_k.shape}")
 
         logits = classifier(top_k)
         probs = F.softmax(logits, dim=1)
         instance_loss = self.instance_loss(probs, top_targets)
-        return instance_loss, torch.topk(logits, 1, dim=1)[1].squeeze(1), top_targets
-    def instance_evaluation_middle(self, A, h,  classifier):
-        device = h.device
-
-        if len(A.shape) == 1:
-            A = A.view(1, -1)
-        A = A.view(-1)
-        top_k = torch.index_select(h, dim=0, index=torch.topk(A, self.k)[1][-1])
-        top_targets = torch.full((self.k, ), 0.5, device=device).long().unsqueeze(0)
-        logits = classifier(top_k)
-        probs = F.softmax(logits, dim=1)
-        instance_loss = self.instance_loss(probs, top_targets)
-        return instance_loss, torch.topk(logits, 1, dim=1)[1].squeeze(1), top_targets
+        print(f"instance loss:{instance_loss}")
+        return instance_loss, torch.topk(logits, 1, dim=1)[1].squeeze(1), top_targets 
 
     def forward(self, h, label = 1, pos = None, instance_eval=True, return_features=False, attention_only=False):
 
