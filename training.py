@@ -519,7 +519,7 @@ def main():
     model.load_state_dict(torch.load(best_weights, weights_only=True))
     # now eval
     # test_loader = DataLoader(AttentionDataset(test.reset_index(),type_embed =args.type_embed, mode = "test"), batch_size=1, num_workers = os.cpu_count(), pin_memory = True)
-        test_loader = DataLoader(AttentionDataset(test.reset_index(),type_embed =args.type_embed, mode = "test"))
+    test_loader = DataLoader(AttentionDataset(test.reset_index(),type_embed =args.type_embed, mode = "test"))
 
     results_test = evaluate(model, test_loader, instance_eval=False, position = args.positional_embed)
     results_val = evaluate(model, val_loader, instance_eval=False, position = args.positional_embed)
