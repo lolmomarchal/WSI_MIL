@@ -22,13 +22,13 @@ from fold_split import stratified_k_fold_split, stratified_train_test_split
 torch.backends.cuda.matmul.allow_tf32 = True
 torch.backends.cudnn.benchmark = True
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-import torch.multiprocessing as mp
-mp.set_start_method('fork', force=True)
+# import torch.multiprocessing as mp
+# mp.set_start_method('fork', force=True)
 
-import resource
-soft, hard = resource.getrlimit(resource.RLIMIT_NOFILE)
-print(f"Soft limit: {soft}, Hard limit: {hard}")
-resource.setrlimit(resource.RLIMIT_NOFILE, (min(hard, 65536), hard))
+# import resource
+# soft, hard = resource.getrlimit(resource.RLIMIT_NOFILE)
+# print(f"Soft limit: {soft}, Hard limit: {hard}")
+# resource.setrlimit(resource.RLIMIT_NOFILE, (min(hard, 65536), hard))
 
 class color:
     reset = '\033[0m'
