@@ -126,6 +126,8 @@ class AttentionDataset(data.Dataset):
                     knn_indices = compute_knn(coords, k)
                     local_embeddings = aggregate_local_features_euclidean(np.array(features), coords, knn_indices)
                     positional_embed = torch.tensor(local_embeddings)
+                    if torch.isnan(positional_embed).any():
+                        positional_embed = features 
                 else:
                     positional_embed = torch.empty(2048)
                     
