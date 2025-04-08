@@ -27,6 +27,7 @@ class MIL_SB(nn.Module):
         self.k_middle = self.k
 
     def instance_evaluation(self, A, h, classifier):
+        
         print("---------------")
         print("Eval in")
         # print(f"h shape")
@@ -37,6 +38,8 @@ class MIL_SB(nn.Module):
             A = A.view(1, -1)
 
         A = A.view(-1)
+        A = torch.nan_to_num(A, nan=0.0, posinf=1.0, neginf=0.0)
+        A = torch.clamp(A, 0.0, 1.0)
         # print(f"A shape reshaping")
         # print(A.shape)
 
