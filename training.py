@@ -76,7 +76,7 @@ class Trainer:
         print(f"Model Device: {next(self.model.parameters()).device}")
         print(f"Criterion Device: {getattr(self.criterion, 'device', 'N/A')}")
 
-        self.optimizer = optim.Adam(model.parameters(), lr=1e-4)
+        self.optimizer =optim.Adam(filter(lambda p: p.requires_grad, model.parameters()), lr=1e-4, weight_decay=1e-5)
         self.best_val_loss = float('inf')
         self.paths = {
             "train": os.path.join(self.save_path, "training"),
@@ -109,10 +109,9 @@ class Trainer:
             temp = pd.DataFrame()
             x = np.array(x.squeeze()).flatten()
             y = np.array(y.squeeze()).flatten()
-            tile_paths = np.array(tile_paths).flatten()  # Added .copy()
-            scales = np.repeat(scales, len(x)) # Ensure scales is also copied if it's a tensor
-            original_size = np.repeat(original_size, len(x)) # Ensure original_size is also copied
-
+            tile_paths = np.array(tile_paths).flatten()  
+            scales = np.repeat(scales, len(x))
+            original_size = np.repeat(original_size, len(x)) 
             temp["x"] = x
             temp["y"] = y
             temp["tile_paths"] = tile_paths
@@ -202,6 +201,7 @@ class Trainer:
 
                     
                 self.optimizer.step()
+                self.optimizer.zero_grad()
                 running_loss += loss.item()
                 running_correct += (logits.argmax(dim=1) == labels).sum().item()
                 total += labels.size(0)    
