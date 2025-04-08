@@ -13,26 +13,18 @@ from snorkel.classification import cross_entropy_with_probs
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, confusion_matrix, roc_auc_score
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
-# custom
+ 
 from models.MIL_model import MIL_SB
 from AttentionDataset import AttentionDataset, InstanceDataset, instance_dataloader
 from models.AttentionModel import GatedAttentionModel
 from fold_split import stratified_k_fold_split, stratified_train_test_split
+
 import torch.multiprocessing
-# torch.multiprocessing.set_sharing_strategy('file_system')
 if torch.cuda.is_available():
     torch.cuda.manual_seed(42)
 torch.manual_seed(42)
-# torch.backends.cuda.matmul.allow_tf32 = True
 torch.backends.cudnn.benchmark = True
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-# import torch.multiprocessing as mp
-# mp.set_start_method('fork', force=True)
-
-# import resource
-# soft, hard = resource.getrlimit(resource.RLIMIT_NOFILE)
-# print(f"Soft limit: {soft}, Hard limit: {hard}")
-# resource.setrlimit(resource.RLIMIT_NOFILE, (min(hard, 65536), hard))
 
 class color:
     reset = '\033[0m'
