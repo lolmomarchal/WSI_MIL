@@ -226,12 +226,38 @@ class MIL_SB(nn.Module):
         # print("-------")
         # print("new batch")
         if pos is not None:
-            h = torch.cat([h,pos], dim =-1).float()
+            if torch.isnan(h).any():
+                print("NaNs found in h before concat")
+            if torch.isnan(pos).any():
+                print("NaNs found in pos before concat")
+        
+            h = torch.cat([h, pos], dim=-1).float()
+        
+            if torch.isnan(h).any():
+                print("NaNs found in h after concat")
+        
             h = self.positional_(h)
+            if torch.isnan(h).any():
+                print("NaNs found after positional_")
+        
             h = self.relu(h)
+            if torch.isnan(h).any():
+                print("NaNs found after ReLU")
+        
             h = self.dropout(h)
+            if torch.isnan(h).any():
+                print("NaNs found after Dropout")
+        
+            if torch.isinf(h).any():
+                print("Infs found after Dropout")
+        
+            for name, param in self.positional_.named_parameters():
+                if torch.isnan(param).any() or torch.isinf(param).any():
+                    print(f"{name} has invalid values: NaN={torch.isnan(param).any().item()}, Inf={torch.isinf(param).any().item()}")
             
         A, h = self.attention_net(h.float())
+        if torch.isnan(h).any():
+                print("NaNs found after attention")
         # print(f"h shape {h.shape}")
         A_raw = A
 
@@ -244,19 +270,13 @@ class MIL_SB(nn.Module):
         A = F.softmax(A, dim = 1)
         # print(f"shape of Attention after softmax: {A.shape}")
         if instance_eval:
-            # instance evaluation -> calculating the loss
-            # here according to CLAM what we are doing is setting high attention as being in class and low attention being out of class
-            # should only be doing it to ensure that
+         
             total_instance_loss = 0
             all_predictions = []
             all_targets = []
-            # turns the class label (for the sample) into a tensor
             label = torch.tensor(label).long()
-            #print(f"sample label {label}")
-            # the possible class labels for the instances are then the # of classes hot coded
+          
             instance_labels = F.one_hot(label, num_classes=self.n_classes).squeeze()
-            #print(f"len classifiers: {len(self.instance_classifiers)}")
-            #print(f"instance_labels: instance_labels")
             for i in range(len(self.instance_classifiers)):
 
                 instance_label = instance_labels[i].item()
